@@ -6,13 +6,30 @@
   <title>FHIRPath LSP Debug Client</title>
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- CodeMirror CSS -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/theme/default.min.css">
+  <!-- CodeMirror 5 from CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
   
-  <!-- CodeMirror JS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+  
+  <style>
+    /* Custom styles for CodeMirror hints */
+    .CodeMirror-hints {
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 13px;
+    }
+    
+    .CodeMirror-hint {
+      padding: 4px 8px;
+    }
+    
+    .cm-completion-class { color: #d97706; }
+    .cm-completion-function { color: #7c3aed; }
+    .cm-completion-field { color: #2563eb; }
+    .cm-completion-variable { color: #059669; }
+  </style>
   
   <script>
     tailwind.config = {

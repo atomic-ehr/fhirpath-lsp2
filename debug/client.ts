@@ -45,10 +45,134 @@ export class LSPClient {
       this.onEditorChange();
     });
     
+    // Set up input read for autocomplete trigger
+    this.editor.on("inputRead", (cm: any, change: any) => {
+      // Trigger autocomplete after typing '.'
+      if (change.text[0] === '.') {
+        // Small delay to let the character be inserted
+        setTimeout(() => {
+          cm.showHint({
+            hint: (cm: any) => this.getLSPCompletions(cm, null),
+            completeSingle: false
+          });
+        }, 100);
+      }
+    });
+    
+    // Set up extraKeys for manual completion trigger
+    this.editor.setOption('extraKeys', {
+      'Ctrl-Space': (cm: any) => {
+        cm.showHint({
+          hint: (cm: any) => this.getLSPCompletions(cm, null),
+          completeSingle: false
+        });
+      }
+    });
+    
     // Set up hover handler for diagnostics
     this.setupHoverTooltips();
   }
   
+  private getLSPCompletions(cm: any, callback: any): any {
+    const cursor = cm.getCursor();
+    const token = cm.getTokenAt(cursor);
+    
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      if (typeof callback === 'function') {
+        callback({ list: [], from: cursor, to: cursor });
+        return;
+      }
+      return { list: [], from: cursor, to: cursor };
+    }
+    
+    // For async operation, return a promise if no callback
+    if (typeof callback !== 'function') {
+      return this.sendRequest("textDocument/completion", {
+        textDocument: { uri: this.documentUri },
+        position: { line: cursor.line, character: cursor.ch },
+        context: {
+          triggerKind: 2, // TriggerCharacter
+          triggerCharacter: "."
+        }
+      }).then(response => {
+        if (!response || !response.result) {
+          return { list: [], from: cursor, to: cursor };
+        }
+
+        // Convert LSP completion items to CodeMirror hints
+        const completions = (Array.isArray(response.result) ? response.result : response.result.items || [])
+          .map((item: any) => ({
+            text: item.insertText || item.label,
+            displayText: item.label,
+            className: this.getCompletionClassName(item.kind)
+          }));
+
+        return {
+          list: completions,
+          from: { line: cursor.line, ch: token.start },
+          to: { line: cursor.line, ch: token.end }
+        };
+      }).catch(error => {
+        console.error("Failed to get completions:", error);
+        return { list: [], from: cursor, to: cursor };
+      });
+    }
+    
+    // Request completions from LSP server (callback version)
+    this.sendRequest("textDocument/completion", {
+      textDocument: { uri: this.documentUri },
+      position: { line: cursor.line, character: cursor.ch },
+      context: {
+        triggerKind: 2, // TriggerCharacter
+        triggerCharacter: "."
+      }
+    }).then(response => {
+      if (!response || !response.result) {
+        callback({ list: [], from: cursor, to: cursor });
+        return;
+      }
+
+      // Convert LSP completion items to CodeMirror hints
+      const completions = (Array.isArray(response.result) ? response.result : response.result.items || [])
+        .map((item: any) => ({
+          text: item.insertText || item.label,
+          displayText: item.label,
+          className: this.getCompletionClassName(item.kind)
+        }));
+
+      callback({
+        list: completions,
+        from: { line: cursor.line, ch: token.start },
+        to: { line: cursor.line, ch: token.end }
+      });
+    }).catch(error => {
+      console.error("Failed to get completions:", error);
+      if (typeof callback === 'function') {
+        callback({ list: [], from: cursor, to: cursor });
+      }
+    });
+  }
+
+  private getCompletionClassName(kind: number): string {
+    switch (kind) {
+      case 7: return 'cm-completion-class';    // Class
+      case 3: return 'cm-completion-function'; // Function
+      case 5: return 'cm-completion-field';    // Field
+      case 6: return 'cm-completion-variable'; // Variable
+      default: return 'cm-completion-text';
+    }
+  }
+
+  private getCompletionIcon(kind: number): string {
+    switch (kind) {
+      case 7: return 'C';  // Class
+      case 3: return 'ƒ';  // Function
+      case 5: return 'F';  // Field
+      case 6: return 'V';  // Variable
+      default: return 'T';
+    }
+  }
+
   private setupHoverTooltips(): void {
     const wrapper = this.editor.getWrapperElement();
     
