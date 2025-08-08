@@ -42,44 +42,76 @@ export class LSPClient {
     const lspCompletionSource = async (context: CompletionContext): Promise<CompletionResult | null> => {
       console.log(`[Completion] Source called at position ${context.pos}`);
       
-      // Simple matching for testing
-      const match = context.matchBefore(/[\w.]*/)
-      if (!match && !context.explicit) {
-        console.log(`[Completion] No match found`);
-        return null;
-      }
+      // Check for dot trigger
+      const dotMatch = context.matchBefore(/\.\w*/);
+      const wordMatch = context.matchBefore(/\w+/);
+      const match = dotMatch || wordMatch || context.matchBefore(/[\w.]*/);
       
       const text = context.state.doc.toString();
       const beforeCursor = text.slice(Math.max(0, context.pos - 1), context.pos);
       const justTypedDot = beforeCursor === '.';
       
-      // Always trigger for testing
-      console.log(`[Completion] Match: "${match?.text}", JustTypedDot: ${justTypedDot}, Explicit: ${context.explicit}`);
+      // Log what we found
+      console.log(`[Completion] Dot match: "${dotMatch?.text}", Word match: "${wordMatch?.text}", JustTypedDot: ${justTypedDot}, Explicit: ${context.explicit}`);
+      
+      // Trigger if:
+      // 1. We just typed a dot
+      // 2. We're typing after a dot (dotMatch exists)
+      // 3. It was explicitly triggered
+      // 4. We're typing a word
+      if (!justTypedDot && !dotMatch && !context.explicit && !wordMatch) {
+        console.log(`[Completion] Not triggering - no valid context`);
+        return null;
+      }
 
       try {
-        // First, let's try with static completions to see if popup works
-        const testCompletions = [
-          { label: "Patient", kind: 7, detail: "FHIR Resource" },
-          { label: "name", kind: 5, detail: "HumanName[]" },
-          { label: "birthDate", kind: 5, detail: "date" },
-          { label: "gender", kind: 5, detail: "code" },
-          { label: "address", kind: 5, detail: "Address[]" }
-        ];
+        // Get completions from LSP if connected, otherwise use test data
+        let completions: any[] = [];
         
-        console.log(`[Completion] Returning ${testCompletions.length} test completions`);
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          completions = await this.requestCompletions(context.pos, justTypedDot);
+        }
+        
+        // Fallback to test completions if no LSP results
+        if (completions.length === 0) {
+          completions = [
+            { label: "Patient", kind: 7, detail: "FHIR Resource" },
+            { label: "name", kind: 5, detail: "HumanName[]" },
+            { label: "birthDate", kind: 5, detail: "date" },
+            { label: "gender", kind: 5, detail: "code" },
+            { label: "address", kind: 5, detail: "Address[]" },
+            { label: "active", kind: 5, detail: "boolean" },
+            { label: "identifier", kind: 5, detail: "Identifier[]" },
+            { label: "telecom", kind: 5, detail: "ContactPoint[]" }
+          ];
+          console.log(`[Completion] Using test completions (${completions.length} items)`);
+        } else {
+          console.log(`[Completion] Using LSP completions (${completions.length} items)`);
+        }
+        
+        // Determine the range to replace
+        let from = context.pos;
+        if (dotMatch) {
+          from = dotMatch.from;
+        } else if (wordMatch) {
+          from = wordMatch.from;
+        } else if (match) {
+          from = match.from;
+        }
         
         const result = {
-          from: match ? match.from : context.pos,
+          from: from,
           to: context.pos,
-          options: testCompletions.map(item => ({
+          options: completions.map(item => ({
             label: item.label,
             type: this.getCompletionType(item.kind),
-            detail: item.detail
+            detail: item.detail || item.documentation,
+            apply: item.insertText || item.label
           })),
-          validFor: /^\w*$/
+          validFor: justTypedDot || dotMatch ? /^\.?\w*$/ : /^\w*$/
         };
         
-        console.log(`[Completion] Result:`, result);
+        console.log(`[Completion] Returning result from ${from} to ${context.pos} with ${result.options.length} options`);
         return result;
         
       } catch (error) {
@@ -119,7 +151,7 @@ export class LSPClient {
         autocompletion({
           override: [lspCompletionSource],
           activateOnTyping: true,
-          activateOnTypingDelay: 100,  // Delay before auto-trigger
+          activateOnTypingDelay: 0,     // No delay for dot trigger
           selectOnOpen: true,           // Auto-select first item
           closeOnBlur: true,            // Close on blur
           maxRenderedOptions: 100,      // Max items to render
@@ -168,6 +200,20 @@ export class LSPClient {
         EditorView.updateListener.of((update: ViewUpdate) => {
           if (update.docChanged) {
             this.onEditorChange();
+            
+            // Check if user just typed a dot
+            const changes = update.state.doc.sliceString(0);
+            const pos = update.state.selection.main.head;
+            if (pos > 0) {
+              const char = changes[pos - 1];
+              if (char === '.') {
+                console.log(`[Editor] Detected dot at position ${pos}, triggering completion`);
+                // Force trigger completion
+                setTimeout(() => {
+                  startCompletion(update.view);
+                }, 10);
+              }
+            }
           }
         }),
         syntaxHighlighting(defaultHighlightStyle)
