@@ -6,29 +6,18 @@
   <title>FHIRPath LSP Debug Client</title>
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <!-- CodeMirror 5 from CDN -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.css">
-  
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
+  <!-- CodeMirror 6 styles are bundled with the modules -->
   
   <style>
-    /* Custom styles for CodeMirror hints */
-    .CodeMirror-hints {
+    /* CodeMirror 6 autocomplete styles */
+    .cm-tooltip-autocomplete {
       font-family: 'Consolas', 'Courier New', monospace;
       font-size: 13px;
     }
     
-    .CodeMirror-hint {
-      padding: 4px 8px;
+    .cm-completionIcon {
+      padding-right: 4px;
     }
-    
-    .cm-completion-class { color: #d97706; }
-    .cm-completion-function { color: #7c3aed; }
-    .cm-completion-field { color: #2563eb; }
-    .cm-completion-variable { color: #059669; }
   </style>
   
   <script>
@@ -43,15 +32,17 @@
     }
   </script>
   <style>
-    /* CodeMirror custom styles */
-    .CodeMirror {
+    /* CodeMirror 6 editor styles */
+    .cm-editor {
       height: 100%;
       font-size: 14px;
       font-family: 'Consolas', 'Courier New', monospace;
+      border: 1px solid #e5e7eb;
     }
     
-    .CodeMirror-focused {
+    .cm-editor.cm-focused {
       outline: none;
+      border-color: #3b82f6;
     }
     
     /* Syntax highlighting colors */
@@ -277,6 +268,6 @@
     }
   </style>
   
-  <script type="module" src="./client.ts"></script>
+  <script type="module" src="./client-cm6.ts"></script>
 </body>
 </html>
