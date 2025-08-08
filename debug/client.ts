@@ -67,7 +67,12 @@ export class LSPClient {
           cm.showHint({
             hint: (cm: any) => this.getLSPCompletions(cm, null),
             completeSingle: false,
-            closeOnUnfocus: false
+            closeOnUnfocus: false,
+            extraKeys: {
+              'Enter': 'pick',  // Accept selected completion with Enter
+              'Tab': 'pick',    // Also accept with Tab
+              'Esc': 'close'    // Close with Escape
+            }
           });
         }, 100);
       } 
@@ -79,7 +84,12 @@ export class LSPClient {
           cm.showHint({
             hint: (cm: any) => this.getLSPCompletions(cm, null),
             completeSingle: false,
-            closeOnUnfocus: false
+            closeOnUnfocus: false,
+            extraKeys: {
+              'Enter': 'pick',  // Accept selected completion with Enter
+              'Tab': 'pick',    // Also accept with Tab
+              'Esc': 'close'    // Close with Escape
+            }
           });
         }
       }
@@ -90,7 +100,12 @@ export class LSPClient {
       'Ctrl-Space': (cm: any) => {
         cm.showHint({
           hint: (cm: any) => this.getLSPCompletions(cm, null),
-          completeSingle: false
+          completeSingle: false,
+          extraKeys: {
+            'Enter': 'pick',  // Accept selected completion with Enter
+            'Tab': 'pick',    // Also accept with Tab
+            'Esc': 'close'    // Close with Escape
+          }
         });
       }
     });
