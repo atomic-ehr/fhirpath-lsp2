@@ -1,10 +1,11 @@
 // Import CodeMirror 6 modules
 import { EditorState, StateEffect, StateField } from '@codemirror/state';
-import { EditorView, keymap, ViewUpdate, Decoration, DecorationSet } from '@codemirror/view';
+import { EditorView, keymap, ViewUpdate, Decoration, DecorationSet, tooltips } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
-import { autocompletion, CompletionContext, CompletionResult, acceptCompletion } from '@codemirror/autocomplete';
+import { autocompletion, CompletionContext, CompletionResult, acceptCompletion, completionKeymap, startCompletion } from '@codemirror/autocomplete';
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
 import { linter, Diagnostic } from '@codemirror/lint';
+import { oneDark } from '@codemirror/theme-one-dark';
 
 // LSP Client for WebSocket connection
 export class LSPClient {
@@ -127,6 +128,19 @@ export class LSPClient {
       doc: initialText,
       extensions: [
         basicSetup,
+        // Theme for better visibility
+        EditorView.theme({
+          "&": {
+            fontSize: "14px"
+          },
+          ".cm-tooltip.cm-tooltip-autocomplete": {
+            "& > ul": {
+              fontFamily: "monospace",
+              maxHeight: "200px",
+              maxWidth: "400px"
+            }
+          }
+        }),
         autocompletion({
           override: [lspCompletionSource],
           activateOnTyping: true,
@@ -135,20 +149,30 @@ export class LSPClient {
           closeOnBlur: true,            // Close on blur
           maxRenderedOptions: 100,      // Max items to render
           defaultKeymap: true,          // Use default keybindings
-          // Add icons for completion types
-          icons: true
+          icons: true                  // Add icons for completion types
         }),
-        // Add Enter key binding for accepting completions
-        keymap.of([{
-          key: "Enter",
-          run: (view) => {
-            // First try to accept completion, if none then insert newline
-            if (acceptCompletion(view)) return true;
-            // Otherwise, insert a newline
-            view.dispatch(view.state.replaceSelection("\n"));
-            return true;
+        // Add completion keymap
+        keymap.of([
+          ...completionKeymap,
+          {
+            key: "Ctrl-Space",
+            run: (view) => {
+              // Manually trigger completion
+              console.log("[Manual] Triggering completion with Ctrl-Space");
+              return startCompletion(view);
+            }
+          },
+          {
+            key: "Enter",
+            run: (view) => {
+              // First try to accept completion, if none then insert newline
+              if (acceptCompletion(view)) return true;
+              // Otherwise, insert a newline
+              view.dispatch(view.state.replaceSelection("\n"));
+              return true;
+            }
           }
-        }]),
+        ]),
         lspLinter,
         EditorView.updateListener.of((update: ViewUpdate) => {
           if (update.docChanged) {
