@@ -16,6 +16,15 @@ export class LSPClient {
   private currentDiagnostics: any[] = [];
   private markers: any[] = [];
   private currentTooltip: HTMLElement | null = null;
+  
+  // Caching for autocomplete
+  private completionCache: {
+    prefix: string;
+    position: { line: number; ch: number };
+    completions: any[];
+    timestamp: number;
+  } | null = null;
+  private readonly CACHE_DURATION = 10000; // 10 seconds cache duration
 
   constructor() {
     this.initializeEditor();
@@ -47,15 +56,32 @@ export class LSPClient {
     
     // Set up input read for autocomplete trigger
     this.editor.on("inputRead", (cm: any, change: any) => {
+      const cursor = cm.getCursor();
+      const line = cm.getLine(cursor.line);
+      const textBeforeCursor = line.substring(0, cursor.ch);
+      
       // Trigger autocomplete after typing '.'
       if (change.text[0] === '.') {
         // Small delay to let the character be inserted
         setTimeout(() => {
           cm.showHint({
             hint: (cm: any) => this.getLSPCompletions(cm, null),
-            completeSingle: false
+            completeSingle: false,
+            closeOnUnfocus: false
           });
         }, 100);
+      } 
+      // Continue showing hints if typing after a dot
+      else if (textBeforeCursor.match(/\.\w+$/)) {
+        // Check if we have cached completions
+        if (this.completionCache && 
+            Date.now() - this.completionCache.timestamp < this.CACHE_DURATION) {
+          cm.showHint({
+            hint: (cm: any) => this.getLSPCompletions(cm, null),
+            completeSingle: false,
+            closeOnUnfocus: false
+          });
+        }
       }
     });
     
@@ -87,22 +113,50 @@ export class LSPClient {
       return { list: [], from: cursor, to: cursor };
     }
     
-    // Determine caching strategy based on context
-    let validFor: RegExp | undefined;
-    let requestBroaderContext = false;
+    // Extract the current prefix (text after the last dot or from token start)
+    const lastDotIndex = textBeforeCursor.lastIndexOf('.');
+    const prefix = lastDotIndex >= 0 
+      ? textBeforeCursor.substring(lastDotIndex + 1)
+      : token.string;
     
-    // Check what triggered the completion
-    if (textBeforeCursor.endsWith('.')) {
-      // Just typed a dot - cache all properties and filter as user types
-      validFor = /^\.?\w*$/;
-      requestBroaderContext = true;  // Request all possible completions
-    } else if (textBeforeCursor.match(/\.\w*$/)) {
-      // Typing after a dot - use aggressive caching
-      validFor = /^\w*$/;
-    } else {
-      // General word completion
-      validFor = /^\w*$/;
+    // Check if we have a valid cache
+    if (this.completionCache && 
+        Date.now() - this.completionCache.timestamp < this.CACHE_DURATION) {
+      
+      // Check if we're in the same completion context
+      const cachePrefix = this.completionCache.prefix;
+      const sameLine = cursor.line === this.completionCache.position.line;
+      const nearbyPosition = Math.abs(cursor.ch - this.completionCache.position.ch) <= prefix.length;
+      
+      // If we typed more characters after a dot in the same context, filter cached results
+      if (sameLine && nearbyPosition && prefix.startsWith(cachePrefix)) {
+        const filtered = this.completionCache.completions.filter(item => {
+          const label = item.displayText || item.text;
+          return label.toLowerCase().startsWith(prefix.toLowerCase());
+        });
+        
+        console.log(`[Cache HIT] Using cached completions. Prefix: "${prefix}", Filtered: ${filtered.length}/${this.completionCache.completions.length}`);
+        
+        if (typeof callback === 'function') {
+          callback({
+            list: filtered,
+            from: { line: cursor.line, ch: token.start },
+            to: { line: cursor.line, ch: token.end }
+          });
+          return;
+        }
+        return {
+          list: filtered,
+          from: { line: cursor.line, ch: token.start },
+          to: { line: cursor.line, ch: token.end }
+        };
+      }
     }
+    
+    console.log(`[Cache MISS] Fetching new completions. Prefix: "${prefix}"`);
+    
+    // Determine if we should cache this request
+    const shouldCache = textBeforeCursor.endsWith('.') || textBeforeCursor.match(/\.\w*$/);
     
     // For async operation, return a promise if no callback
     if (typeof callback !== 'function') {
@@ -127,15 +181,21 @@ export class LSPClient {
             hint: item.detail || item.documentation
           }));
 
-        // Log caching info for debugging
-        console.log(`[Completion] Returning ${completions.length} items with caching pattern: ${validFor?.source}`);
+        // Save to cache if appropriate
+        if (shouldCache && completions.length > 0) {
+          this.completionCache = {
+            prefix: prefix,
+            position: { line: cursor.line, ch: cursor.ch },
+            completions: completions,
+            timestamp: Date.now()
+          };
+          console.log(`[Cache SAVE] Cached ${completions.length} completions for prefix "${prefix}"`);
+        }
 
         return {
           list: completions,
           from: { line: cursor.line, ch: token.start },
-          to: { line: cursor.line, ch: token.end },
-          // Enable client-side caching and filtering
-          validFor: validFor
+          to: { line: cursor.line, ch: token.end }
         };
       }).catch(error => {
         console.error("Failed to get completions:", error);
@@ -166,15 +226,21 @@ export class LSPClient {
           hint: item.detail || item.documentation
         }));
 
-      // Log caching info for debugging
-      console.log(`[Completion] Returning ${completions.length} items with caching pattern: ${validFor?.source}`);
+      // Save to cache if appropriate
+      if (shouldCache && completions.length > 0) {
+        this.completionCache = {
+          prefix: prefix,
+          position: { line: cursor.line, ch: cursor.ch },
+          completions: completions,
+          timestamp: Date.now()
+        };
+        console.log(`[Cache SAVE] Cached ${completions.length} completions for prefix "${prefix}"`);
+      }
 
       callback({
         list: completions,
         from: { line: cursor.line, ch: token.start },
-        to: { line: cursor.line, ch: token.end },
-        // Enable client-side caching and filtering
-        validFor: validFor
+        to: { line: cursor.line, ch: token.end }
       });
     }).catch(error => {
       console.error("Failed to get completions:", error);
