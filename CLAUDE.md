@@ -15,6 +15,16 @@ Default to using Bun instead of Node.js.
 - Only restart if you suspect hot reload is broken or the server has crashed
 - Check if the server is already running before starting it: `lsof -i :8080`
 
+## CodeMirror Version
+
+**The debug client uses CodeMirror 5 (not 6) loaded from CDN.**
+
+- The debug client (`debug/index.html`) loads CodeMirror 5.65.16 from CDN
+- This includes the show-hint addon for autocomplete functionality
+- Note: CodeMirror 5 uses different APIs than CodeMirror 6
+- Caching is implemented manually since CodeMirror 5 doesn't have the `validFor` property
+- Key bindings are configured via `extraKeys` in the showHint options
+
 - Use `bun <file>` instead of `node <file>` or `ts-node <file>`
 - Use `bun test` instead of `jest` or `vitest`
 - Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
