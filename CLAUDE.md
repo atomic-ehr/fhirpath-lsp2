@@ -6,6 +6,15 @@ alwaysApply: false
 
 Default to using Bun instead of Node.js.
 
+## Important: Debug Server Hot Reload
+
+**The debug server (`bun run debug`) has hot reload enabled with the `--hot --watch` flags.**
+
+- **DO NOT restart the server** when making code changes - it will automatically reload
+- The server watches for file changes and reloads instantly
+- Only restart if you suspect hot reload is broken or the server has crashed
+- Check if the server is already running before starting it: `lsof -i :8080`
+
 - Use `bun <file>` instead of `node <file>` or `ts-node <file>`
 - Use `bun test` instead of `jest` or `vitest`
 - Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`

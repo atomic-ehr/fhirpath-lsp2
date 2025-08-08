@@ -63,10 +63,18 @@ export async function validateDocument(
     }));
     
     // Send diagnostics to the client
-    connection.sendDiagnostics({ 
-      uri: textDocument.uri, 
-      diagnostics 
-    });
+    // Check if connection is still active before sending diagnostics
+    if (connection) {
+      try {
+        connection.sendDiagnostics({ 
+          uri: textDocument.uri, 
+          diagnostics 
+        });
+      } catch (error) {
+        // Connection might be disposed, silently ignore
+        console.error("Failed to send diagnostics:", error);
+      }
+    }
   } catch (error) {
     // If analyze throws an error, send it as a diagnostic
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -80,9 +88,17 @@ export async function validateDocument(
       source: "fhirpath-lsp",
     }];
     
-    connection.sendDiagnostics({ 
-      uri: textDocument.uri, 
-      diagnostics 
-    });
+    // Check if connection is still active before sending diagnostics
+    if (connection) {
+      try {
+        connection.sendDiagnostics({ 
+          uri: textDocument.uri, 
+          diagnostics 
+        });
+      } catch (error) {
+        // Connection might be disposed, silently ignore
+        console.error("Failed to send diagnostics:", error);
+      }
+    }
   }
 }

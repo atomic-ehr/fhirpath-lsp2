@@ -76,6 +76,8 @@ export class LSPClient {
   private getLSPCompletions(cm: any, callback: any): any {
     const cursor = cm.getCursor();
     const token = cm.getTokenAt(cursor);
+    const line = cm.getLine(cursor.line);
+    const textBeforeCursor = line.substring(0, cursor.ch);
     
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       if (typeof callback === 'function') {
@@ -85,14 +87,31 @@ export class LSPClient {
       return { list: [], from: cursor, to: cursor };
     }
     
+    // Determine caching strategy based on context
+    let validFor: RegExp | undefined;
+    let requestBroaderContext = false;
+    
+    // Check what triggered the completion
+    if (textBeforeCursor.endsWith('.')) {
+      // Just typed a dot - cache all properties and filter as user types
+      validFor = /^\.?\w*$/;
+      requestBroaderContext = true;  // Request all possible completions
+    } else if (textBeforeCursor.match(/\.\w*$/)) {
+      // Typing after a dot - use aggressive caching
+      validFor = /^\w*$/;
+    } else {
+      // General word completion
+      validFor = /^\w*$/;
+    }
+    
     // For async operation, return a promise if no callback
     if (typeof callback !== 'function') {
       return this.sendRequest("textDocument/completion", {
         textDocument: { uri: this.documentUri },
         position: { line: cursor.line, character: cursor.ch },
         context: {
-          triggerKind: 2, // TriggerCharacter
-          triggerCharacter: "."
+          triggerKind: textBeforeCursor.endsWith('.') ? 2 : 1,
+          triggerCharacter: textBeforeCursor.endsWith('.') ? "." : undefined
         }
       }).then(response => {
         if (!response || !response.result) {
@@ -104,13 +123,19 @@ export class LSPClient {
           .map((item: any) => ({
             text: item.insertText || item.label,
             displayText: item.label,
-            className: this.getCompletionClassName(item.kind)
+            className: this.getCompletionClassName(item.kind),
+            hint: item.detail || item.documentation
           }));
+
+        // Log caching info for debugging
+        console.log(`[Completion] Returning ${completions.length} items with caching pattern: ${validFor?.source}`);
 
         return {
           list: completions,
           from: { line: cursor.line, ch: token.start },
-          to: { line: cursor.line, ch: token.end }
+          to: { line: cursor.line, ch: token.end },
+          // Enable client-side caching and filtering
+          validFor: validFor
         };
       }).catch(error => {
         console.error("Failed to get completions:", error);
@@ -123,8 +148,8 @@ export class LSPClient {
       textDocument: { uri: this.documentUri },
       position: { line: cursor.line, character: cursor.ch },
       context: {
-        triggerKind: 2, // TriggerCharacter
-        triggerCharacter: "."
+        triggerKind: textBeforeCursor.endsWith('.') ? 2 : 1,
+        triggerCharacter: textBeforeCursor.endsWith('.') ? "." : undefined
       }
     }).then(response => {
       if (!response || !response.result) {
@@ -137,13 +162,19 @@ export class LSPClient {
         .map((item: any) => ({
           text: item.insertText || item.label,
           displayText: item.label,
-          className: this.getCompletionClassName(item.kind)
+          className: this.getCompletionClassName(item.kind),
+          hint: item.detail || item.documentation
         }));
+
+      // Log caching info for debugging
+      console.log(`[Completion] Returning ${completions.length} items with caching pattern: ${validFor?.source}`);
 
       callback({
         list: completions,
         from: { line: cursor.line, ch: token.start },
-        to: { line: cursor.line, ch: token.end }
+        to: { line: cursor.line, ch: token.end },
+        // Enable client-side caching and filtering
+        validFor: validFor
       });
     }).catch(error => {
       console.error("Failed to get completions:", error);
