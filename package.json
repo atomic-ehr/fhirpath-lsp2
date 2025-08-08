@@ -9,6 +9,7 @@
     "dev": "bun run build && code --extensionDevelopmentPath=`pwd`/client",
     "test": "bun test",
     "test:watch": "bun test --watch",
+    "typecheck": "bun tsc --noEmit",
     "lsp:stdio": "bun src/server.ts --stdio",
     "lsp:websocket": "bun src/server.ts --websocket",
     "lsp:websocket:port": "bun src/server.ts --websocket --port=4000",

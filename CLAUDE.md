@@ -6,6 +6,14 @@ alwaysApply: false
 
 Default to using Bun instead of Node.js.
 
+## Type Checking
+
+**Use `bun run typecheck` to run TypeScript type checking.**
+
+- This runs `bun tsc --noEmit` to check types without emitting files
+- Always run this after making changes to ensure type safety
+- The project uses ESNext modules to support Bun's features like `import.meta`
+
 ## Important: Debug Server Hot Reload
 
 **The debug server (`bun run debug`) has hot reload enabled with the `--hot --watch` flags.**

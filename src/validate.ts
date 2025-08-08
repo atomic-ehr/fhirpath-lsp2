@@ -1,42 +1,16 @@
-import { Connection } from "vscode-languageserver/node";
+import { Connection, DiagnosticSeverity } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { analyze, FHIRModelProvider } from "@atomic-ehr/fhirpath";
-
-// Create and initialize the R4 model provider
-let modelProvider: FHIRModelProvider | undefined;
-let modelProviderInitPromise: Promise<void> | undefined;
-
-async function getModelProvider(): Promise<FHIRModelProvider> {
-  if (!modelProvider) {
-    modelProvider = new FHIRModelProvider({
-      packages: [{ name: 'hl7.fhir.r4.core', version: '4.0.1' }],
-      cacheDir: './.fhir-cache'
-    });
-    
-    // Initialize the model provider (loads common types)
-    if (!modelProviderInitPromise) {
-      modelProviderInitPromise = modelProvider.initialize().catch(error => {
-        console.error('Failed to initialize FHIR model provider:', error);
-        // Continue without model provider if initialization fails
-      });
-    }
-    
-    await modelProviderInitPromise;
-  }
-  
-  return modelProvider;
-}
 
 // Validation function using FHIRPath analyzer with R4 model provider
 export async function validateDocument(
   connection: Connection,
   textDocument: TextDocument,
+  modelProvider: FHIRModelProvider
 ): Promise<void> {
   const text = textDocument.getText();
   
   try {
-    // Get the initialized model provider
-    const modelProvider = await getModelProvider();
     
     // Analyze the FHIRPath expression with error recovery enabled and R4 model provider
     const analysisResult = analyze(text, {
@@ -46,7 +20,7 @@ export async function validateDocument(
     
     // Convert FHIRPath diagnostics to LSP diagnostics
     const diagnostics = analysisResult.diagnostics.map(diagnostic => ({
-      severity: diagnostic.severity,
+      severity: diagnostic.severity as DiagnosticSeverity,
       range: {
         start: {
           line: diagnostic.range?.start.line ?? 0,
@@ -79,7 +53,7 @@ export async function validateDocument(
     // If analyze throws an error, send it as a diagnostic
     const errorMessage = error instanceof Error ? error.message : String(error);
     const diagnostics = [{
-      severity: 1, // Error
+      severity: DiagnosticSeverity.Error,
       range: {
         start: { line: 0, character: 0 },
         end: { line: 0, character: text.length },

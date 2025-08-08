@@ -9,9 +9,12 @@ import {
   StreamMessageReader,
   StreamMessageWriter,
   Connection,
+  DidChangeConfigurationNotification,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { validateDocument } from "./validate";
+import { setupCompletionHandler } from "./autocomplete";
+import { FHIRModelProvider } from "@atomic-ehr/fhirpath";
 
 // Server options interface
 export interface ServerOptions {
@@ -20,11 +23,36 @@ export interface ServerOptions {
 }
 
 // Setup connection with all handlers
-export function setupConnection(connection: Connection): void {
+export async function setupConnection(connection: Connection): Promise<void> {
   // Create a simple text document manager
   const documents: TextDocuments<TextDocument> = new TextDocuments(
     TextDocument,
   );
+
+  // Initialize FHIR model provider
+  let modelProvider: FHIRModelProvider | undefined;
+  let modelProviderInitPromise: Promise<void> | undefined;
+
+  async function getModelProvider(): Promise<FHIRModelProvider> {
+    if (!modelProvider) {
+      modelProvider = new FHIRModelProvider({
+        packages: [{ name: 'hl7.fhir.r4.core', version: '4.0.1' }],
+        cacheDir: './.fhir-cache'
+      });
+      
+      // Initialize the model provider (loads common types)
+      if (!modelProviderInitPromise) {
+        modelProviderInitPromise = modelProvider.initialize().catch(error => {
+          connection.console.log('Failed to initialize FHIR model provider: ' + error);
+          // Continue without model provider if initialization fails
+        });
+      }
+      
+      await modelProviderInitPromise;
+    }
+    
+    return modelProvider;
+  }
 
   let hasConfigurationCapability = false;
   let hasWorkspaceFolderCapability = false;
@@ -76,7 +104,7 @@ export function setupConnection(connection: Connection): void {
 
     if (hasConfigurationCapability) {
       // Register for all configuration changes
-      connection.client.register("workspace/didChangeConfiguration", undefined);
+      connection.client.register(DidChangeConfigurationNotification.type, {});
     }
 
     if (hasWorkspaceFolderCapability) {
@@ -89,62 +117,24 @@ export function setupConnection(connection: Connection): void {
   });
 
   // Document synchronization
-  documents.onDidOpen((e) => {
+  documents.onDidOpen(async (e) => {
     connection.console.log(`[Server] Document opened: ${e.document.uri}`);
-    validateDocument(connection, e.document);
+    const provider = await getModelProvider();
+    validateDocument(connection, e.document, provider);
   });
 
-  documents.onDidChangeContent((change) => {
+  documents.onDidChangeContent(async (change) => {
     connection.console.log(`[Server] Document changed: ${change.document.uri}`);
-    validateDocument(connection, change.document);
+    const provider = await getModelProvider();
+    validateDocument(connection, change.document, provider);
   });
 
   documents.onDidClose((e) => {
     connection.console.log(`[Server] Document closed: ${e.document.uri}`);
   });
 
-  // Completion
-  connection.onCompletion((params) => {
-    connection.console.log(
-      `[Server] Completion requested at ${params.position.line}:${params.position.character}`,
-    );
-
-    // Sample FHIRPath completions
-    return [
-      {
-        label: "Patient",
-        kind: 7, // Class
-        detail: "FHIR Patient Resource",
-        documentation:
-          "Demographics and other administrative information about an individual receiving care",
-      },
-      {
-        label: "Observation",
-        kind: 7,
-        detail: "FHIR Observation Resource",
-        documentation:
-          "Measurements and simple assertions made about a patient",
-      },
-      {
-        label: "where",
-        kind: 3, // Function
-        detail: "where(criteria)",
-        documentation: "Filter collection by criteria",
-      },
-      {
-        label: "first",
-        kind: 3,
-        detail: "first()",
-        documentation: "Returns the first item in the collection",
-      },
-      {
-        label: "name",
-        kind: 5, // Field
-        detail: "HumanName",
-        documentation: "A name associated with the patient",
-      },
-    ];
-  });
+  // Setup completion handler
+  setupCompletionHandler(connection, documents, getModelProvider);
 
   // Hover
   connection.onHover((params) => {
@@ -364,4 +354,4 @@ if (import.meta.main) {
 }
 
 // Export for testing
-export { startServer, ServerOptions };
+export { startServer };

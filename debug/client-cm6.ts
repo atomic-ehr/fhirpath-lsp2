@@ -47,17 +47,43 @@ export class LSPClient {
       const beforeCursor = text.slice(Math.max(0, context.pos - 1), context.pos);
       const justTypedDot = beforeCursor === '.';
       
+      // Log context for debugging cache invalidation
+      const textBeforeCursor = text.slice(Math.max(0, context.pos - 20), context.pos);
+      console.log(`[Completion] Text before cursor: "${textBeforeCursor}", Just typed dot: ${justTypedDot}`);
+      
       // Check for different patterns
       const dotMatch = context.matchBefore(/\.\w*/);
       const wordMatch = context.matchBefore(/\w+/);
       const fullMatch = context.matchBefore(/\w+\.?/);
+      const parenMatch = context.matchBefore(/\(\s*\w*/);  // Match '(' followed by optional space and word chars
+      
+      // Check if we're after an opening parenthesis
+      const afterParen = beforeCursor === '(' || (context.pos > 1 && text.slice(context.pos - 2, context.pos) === '( ');
       
       // Log what we found
-      console.log(`[Completion] Just typed dot: ${justTypedDot}, Dot match: "${dotMatch?.text}", Word match: "${wordMatch?.text}", Full match: "${fullMatch?.text}", Explicit: ${context.explicit}`);
+      console.log(`[Completion] Just typed dot: ${justTypedDot}, After paren: ${afterParen}, Dot match: "${dotMatch?.text}", Paren match: "${parenMatch?.text}", Word match: "${wordMatch?.text}", Explicit: ${context.explicit}`);
       
-      // Always trigger if we just typed a dot or it's explicit
-      if (!justTypedDot && !context.explicit && !dotMatch) {
-        console.log(`[Completion] Not triggering - no dot context`);
+      // Check if this is a cached call (filtering) vs a new request
+      // A cached call happens when we're filtering existing results
+      const textAfterDot = dotMatch ? dotMatch.text.substring(1) : '';
+      const textAfterParen = parenMatch ? parenMatch.text.replace(/\(\s*/, '') : '';
+      
+      const isCachedCall = (
+        // Filtering after dot
+        (dotMatch && textAfterDot.length > 0 && !justTypedDot && /^\w+$/.test(textAfterDot)) ||
+        // Filtering inside parentheses
+        (parenMatch && textAfterParen.length > 0 && !afterParen && /^\w+$/.test(textAfterParen))
+      );
+      
+      if (isCachedCall) {
+        console.log(`[Completion] CACHED CALL - CodeMirror is filtering for "${textAfterDot || textAfterParen}"`);
+      } else {
+        console.log(`[Completion] NEW REQUEST - Will fetch from LSP server`);
+      }
+      
+      // Trigger if we just typed a dot, after parenthesis, or it's explicit
+      if (!justTypedDot && !afterParen && !context.explicit && !dotMatch && !parenMatch) {
+        console.log(`[Completion] Not triggering - no completion context`);
         return null;
       }
 
@@ -65,25 +91,19 @@ export class LSPClient {
         // Get completions from LSP if connected, otherwise use test data
         let completions: any[] = [];
         
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-          completions = await this.requestCompletions(context.pos, justTypedDot);
-        }
-        
-        // Fallback to test completions if no LSP results
-        if (completions.length === 0) {
-          completions = [
-            { label: "Patient", kind: 7, detail: "FHIR Resource" },
-            { label: "name", kind: 5, detail: "HumanName[]" },
-            { label: "birthDate", kind: 5, detail: "date" },
-            { label: "gender", kind: 5, detail: "code" },
-            { label: "address", kind: 5, detail: "Address[]" },
-            { label: "active", kind: 5, detail: "boolean" },
-            { label: "identifier", kind: 5, detail: "Identifier[]" },
-            { label: "telecom", kind: 5, detail: "ContactPoint[]" }
-          ];
-          console.log(`[Completion] Using test completions (${completions.length} items)`);
+        // Only request from LSP if this is not a cached/filtering call
+        if (!isCachedCall) {
+          if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            completions = await this.requestCompletions(context.pos, justTypedDot);
+            console.log(`[Completion] Received ${completions.length} items from LSP server`);
+          } else {
+            console.log(`[Completion] No LSP connection - no completions available`);
+            return null;
+          }
         } else {
-          console.log(`[Completion] Using LSP completions (${completions.length} items)`);
+          // This is a cached call - CodeMirror will filter the previously returned results
+          console.log(`[Completion] Skipping LSP request - CodeMirror will filter cached results`);
+          return null; // Let CodeMirror use cached results
         }
         
         // Determine the range to replace
@@ -111,11 +131,26 @@ export class LSPClient {
             detail: item.detail || item.documentation,
             apply: item.insertText || item.label
           })),
-          // More permissive validFor when we have a dot context
-          validFor: justTypedDot || dotMatch ? /^[\w]*$/ : /^\w*$/
+          // Enable caching and client-side filtering
+          // Cache is valid while typing word characters (letters, numbers, underscore)
+          // Cache is invalidated when typing dots, spaces, operators, etc.
+          validFor: /^[a-zA-Z0-9_]*$/
         };
         
-        console.log(`[Completion] Returning result from ${from} to ${context.pos} with ${result.options.length} options`);
+        console.log(`[Completion] Returning result from ${from} to ${context.pos} with ${result.options.length} options (cache enabled for word chars)`);
+        
+        // Print completion summary
+        const properties = result.options.filter(o => o.type === 'property');
+        const functions = result.options.filter(o => o.type === 'function');
+        const others = result.options.filter(o => o.type !== 'property' && o.type !== 'function');
+        
+        console.log(`[Completion Summary] ${properties.length} properties, ${functions.length} functions, ${others.length} others`);
+        if (properties.length > 0 && properties.length <= 15) {
+          console.log(`  Properties: ${properties.map(p => p.label).join(', ')}`);
+        }
+        if (functions.length > 0 && functions.length <= 10) {
+          console.log(`  Functions: ${functions.slice(0, 10).map(f => f.label).join(', ')}${functions.length > 10 ? '...' : ''}`);
+        }
         return result;
         
       } catch (error) {
@@ -155,12 +190,12 @@ export class LSPClient {
         autocompletion({
           override: [lspCompletionSource],
           activateOnTyping: true,
-          activateOnTypingDelay: 0,     // No delay for dot trigger
+          activateOnTypingDelay: 0,     // No delay for triggers
           selectOnOpen: true,           // Auto-select first item
           closeOnBlur: true,            // Close on blur
           maxRenderedOptions: 100,      // Max items to render
           defaultKeymap: true,          // Use default keybindings
-          icons: true                  // Add icons for completion types
+          icons: true                   // Add icons for completion types
         }),
         // Add completion keymap
         keymap.of([
@@ -203,20 +238,26 @@ export class LSPClient {
         lspLinter,
         EditorView.updateListener.of((update: ViewUpdate) => {
           if (update.docChanged) {
-            this.onEditorChange();
-            
-            // Check if user just typed a dot
+            // Check if user just typed a trigger character BEFORE debouncing
             const changes = update.state.doc.sliceString(0);
             const pos = update.state.selection.main.head;
-            if (pos > 0) {
-              const char = changes[pos - 1];
-              if (char === '.') {
-                console.log(`[Editor] Detected dot at position ${pos}, triggering completion`);
-                // Force trigger completion
-                setTimeout(() => {
-                  startCompletion(update.view);
-                }, 10);
-              }
+            const justTypedDot = pos > 0 && changes[pos - 1] === '.';
+            const justTypedParen = pos > 0 && changes[pos - 1] === '(';
+            const justTypedSpace = pos > 1 && changes[pos - 1] === ' ' && changes[pos - 2] === '(';
+            
+            if (justTypedDot || justTypedParen || justTypedSpace) {
+              const triggerChar = justTypedDot ? '.' : justTypedParen ? '(' : '( ';
+              console.log(`[Editor] Detected trigger '${triggerChar}' at position ${pos}`);
+              // Immediately update document for trigger characters (no debounce)
+              this.updateDocument();
+              // Then trigger completion
+              setTimeout(() => {
+                console.log(`[Editor] Triggering completion after '${triggerChar}'`);
+                startCompletion(update.view);
+              }, 10);
+            } else {
+              // For other changes, use debounced update
+              this.onEditorChange();
             }
           }
         }),
@@ -284,6 +325,13 @@ export class LSPClient {
 
       const items = Array.isArray(response.result) ? response.result : response.result.items || [];
       console.log(`[LSP Response] Received ${items.length} completion items`);
+      
+      // Print raw LSP completions for debugging
+      console.group(`[LSP Completions] Raw items from server`);
+      items.forEach((item: any, index: number) => {
+        console.log(`  ${index + 1}. ${item.label} (kind: ${item.kind}, detail: ${item.detail || 'none'})`);
+      });
+      console.groupEnd();
       
       return items;
     } catch (error) {
