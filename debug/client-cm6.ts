@@ -42,25 +42,22 @@ export class LSPClient {
     const lspCompletionSource = async (context: CompletionContext): Promise<CompletionResult | null> => {
       console.log(`[Completion] Source called at position ${context.pos}`);
       
-      // Check for dot trigger
-      const dotMatch = context.matchBefore(/\.\w*/);
-      const wordMatch = context.matchBefore(/\w+/);
-      const match = dotMatch || wordMatch || context.matchBefore(/[\w.]*/);
-      
+      // Get the text and check what's before cursor
       const text = context.state.doc.toString();
       const beforeCursor = text.slice(Math.max(0, context.pos - 1), context.pos);
       const justTypedDot = beforeCursor === '.';
       
-      // Log what we found
-      console.log(`[Completion] Dot match: "${dotMatch?.text}", Word match: "${wordMatch?.text}", JustTypedDot: ${justTypedDot}, Explicit: ${context.explicit}`);
+      // Check for different patterns
+      const dotMatch = context.matchBefore(/\.\w*/);
+      const wordMatch = context.matchBefore(/\w+/);
+      const fullMatch = context.matchBefore(/\w+\.?/);
       
-      // Trigger if:
-      // 1. We just typed a dot
-      // 2. We're typing after a dot (dotMatch exists)
-      // 3. It was explicitly triggered
-      // 4. We're typing a word
-      if (!justTypedDot && !dotMatch && !context.explicit && !wordMatch) {
-        console.log(`[Completion] Not triggering - no valid context`);
+      // Log what we found
+      console.log(`[Completion] Just typed dot: ${justTypedDot}, Dot match: "${dotMatch?.text}", Word match: "${wordMatch?.text}", Full match: "${fullMatch?.text}", Explicit: ${context.explicit}`);
+      
+      // Always trigger if we just typed a dot or it's explicit
+      if (!justTypedDot && !context.explicit && !dotMatch) {
+        console.log(`[Completion] Not triggering - no dot context`);
         return null;
       }
 
@@ -91,12 +88,18 @@ export class LSPClient {
         
         // Determine the range to replace
         let from = context.pos;
-        if (dotMatch) {
+        
+        // If we just typed a dot, we want to insert after it
+        if (justTypedDot) {
+          from = context.pos;  // Start from current position (after the dot)
+        } else if (dotMatch) {
+          // We're completing after a dot, replace from the dot
           from = dotMatch.from;
         } else if (wordMatch) {
+          // We're completing a word
           from = wordMatch.from;
-        } else if (match) {
-          from = match.from;
+        } else if (fullMatch) {
+          from = fullMatch.from;
         }
         
         const result = {
@@ -108,7 +111,8 @@ export class LSPClient {
             detail: item.detail || item.documentation,
             apply: item.insertText || item.label
           })),
-          validFor: justTypedDot || dotMatch ? /^\.?\w*$/ : /^\w*$/
+          // More permissive validFor when we have a dot context
+          validFor: justTypedDot || dotMatch ? /^[\w]*$/ : /^\w*$/
         };
         
         console.log(`[Completion] Returning result from ${from} to ${context.pos} with ${result.options.length} options`);
