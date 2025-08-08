@@ -37,34 +37,74 @@ export class LSPClient {
   .where( use = 'official' )
   .first()`;
 
-    // Create LSP completion source with caching
+    // Create LSP completion source with intelligent caching
     const lspCompletionSource = async (context: CompletionContext): Promise<CompletionResult | null> => {
-      // Only trigger on '.' or explicit completion
-      const match = context.matchBefore(/\w*\.?\w*/);
-      if (!match) return null;
+      // Match patterns for FHIRPath expressions
+      const wordMatch = context.matchBefore(/\w+/);
+      const dotMatch = context.matchBefore(/\.\w*/);
+      const fullMatch = context.matchBefore(/[\w.]+/);
       
-      // Check if we just typed a dot or are continuing after a dot
+      // Determine what triggered the completion
       const text = context.state.doc.toString();
       const beforeCursor = text.slice(Math.max(0, context.pos - 1), context.pos);
-      const shouldTrigger = beforeCursor === '.' || context.explicit;
+      const justTypedDot = beforeCursor === '.';
       
-      if (!shouldTrigger && !context.explicit) return null;
+      // Decide which match to use based on context
+      let match = fullMatch;
+      if (justTypedDot) {
+        // If we just typed a dot, we want to complete from the dot
+        match = dotMatch || fullMatch;
+      } else if (!dotMatch && wordMatch) {
+        // If we're typing a word not after a dot
+        match = wordMatch;
+      }
+      
+      if (!match && !context.explicit) return null;
+      
+      // Only trigger on certain conditions
+      const shouldTrigger = justTypedDot || context.explicit || (dotMatch && dotMatch.text.length > 1);
+      
+      if (!shouldTrigger) return null;
+
+      console.log(`[Completion] Triggered - JustTypedDot: ${justTypedDot}, Match: "${match?.text}", Explicit: ${context.explicit}`);
 
       try {
         // Get completions from LSP
-        const completions = await this.requestCompletions(context.pos);
-        if (!completions || completions.length === 0) return null;
+        const completions = await this.requestCompletions(context.pos, justTypedDot);
+        if (!completions || completions.length === 0) {
+          console.log(`[Completion] No completions received from LSP`);
+          return null;
+        }
+
+        console.log(`[Completion] Received ${completions.length} completions from LSP`);
+
+        // Determine caching strategy
+        let validFor: RegExp | undefined;
+        if (justTypedDot) {
+          // After typing a dot, cache aggressively for property completion
+          validFor = /^\.?\w*$/;
+          console.log(`[Completion] Using dot-completion caching pattern`);
+        } else if (dotMatch) {
+          // Continuing to type after a dot
+          validFor = /^\w*$/;
+          console.log(`[Completion] Using word-completion caching pattern`);
+        } else {
+          // General word completion
+          validFor = /^\w*$/;
+        }
 
         return {
-          from: match.from,
+          from: match ? match.from : context.pos,
           options: completions.map(item => ({
             label: item.label,
             type: this.getCompletionType(item.kind),
             detail: item.detail,
-            info: item.documentation
+            info: item.documentation,
+            apply: item.insertText || item.label
           })),
           // Enable client-side filtering with validFor
-          validFor: /^\w*$/
+          validFor: validFor,
+          filter: true  // Enable filtering
         };
       } catch (error) {
         console.error("Failed to get completions:", error);
@@ -90,8 +130,13 @@ export class LSPClient {
         autocompletion({
           override: [lspCompletionSource],
           activateOnTyping: true,
-          // Configure Enter key to accept completions
-          defaultKeymap: true
+          activateOnTypingDelay: 100,  // Delay before auto-trigger
+          selectOnOpen: true,           // Auto-select first item
+          closeOnBlur: true,            // Close on blur
+          maxRenderedOptions: 100,      // Max items to render
+          defaultKeymap: true,          // Use default keybindings
+          // Add icons for completion types
+          icons: true
         }),
         // Add Enter key binding for accepting completions
         keymap.of([{
@@ -143,7 +188,7 @@ export class LSPClient {
     return { line: lines.length - 1, character: lines[lines.length - 1].length };
   }
 
-  private async requestCompletions(offset: number): Promise<any[]> {
+  private async requestCompletions(offset: number, justTypedDot: boolean): Promise<any[]> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.editorView) {
       return [];
     }
@@ -151,21 +196,31 @@ export class LSPClient {
     const text = this.editorView.state.doc.toString();
     const position = this.offsetToPosition(text, offset);
 
+    // Determine trigger context
+    const triggerKind = justTypedDot ? 2 : 1; // 2 = TriggerCharacter, 1 = Invoked
+    const triggerCharacter = justTypedDot ? "." : undefined;
+
+    console.log(`[LSP Request] Completion at position ${position.line}:${position.character}, trigger: ${triggerKind}`);
+
     try {
       const response = await this.sendRequest("textDocument/completion", {
         textDocument: { uri: this.documentUri },
         position: position,
         context: {
-          triggerKind: 2, // TriggerCharacter
-          triggerCharacter: "."
+          triggerKind: triggerKind,
+          triggerCharacter: triggerCharacter
         }
       });
 
       if (!response || !response.result) {
+        console.log(`[LSP Response] No results received`);
         return [];
       }
 
-      return Array.isArray(response.result) ? response.result : response.result.items || [];
+      const items = Array.isArray(response.result) ? response.result : response.result.items || [];
+      console.log(`[LSP Response] Received ${items.length} completion items`);
+      
+      return items;
     } catch (error) {
       console.error("Failed to get completions:", error);
       return [];

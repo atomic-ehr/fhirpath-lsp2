@@ -17,13 +17,14 @@ Default to using Bun instead of Node.js.
 
 ## CodeMirror Version
 
-**The debug client uses CodeMirror 5 (not 6) loaded from CDN.**
+**The debug client uses CodeMirror 6 with Bun bundling.**
 
-- The debug client (`debug/index.html`) loads CodeMirror 5.65.16 from CDN
-- This includes the show-hint addon for autocomplete functionality
-- Note: CodeMirror 5 uses different APIs than CodeMirror 6
-- Caching is implemented manually since CodeMirror 5 doesn't have the `validFor` property
-- Key bindings are configured via `extraKeys` in the showHint options
+- The debug client (`debug/client-cm6.ts`) uses CodeMirror 6 packages installed via Bun
+- Uses modern ES modules and TypeScript
+- Autocomplete caching is built-in via the `validFor` property
+- Enter key accepts completions (configured in keymap)
+- LSP integration provides context-aware completions
+- Client-side filtering reduces server requests
 
 - Use `bun <file>` instead of `node <file>` or `ts-node <file>`
 - Use `bun test` instead of `jest` or `vitest`
