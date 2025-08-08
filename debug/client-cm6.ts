@@ -130,10 +130,26 @@ export class LSPClient {
         keymap.of([
           ...completionKeymap,
           {
-            key: "Ctrl-Space",
+            key: "Cmd-Space",
             run: (view) => {
               // Manually trigger completion
-              console.log("[Manual] Triggering completion with Ctrl-Space");
+              console.log("[Manual] Triggering completion with Cmd-Space");
+              return startCompletion(view);
+            }
+          },
+          {
+            key: "Ctrl-.",
+            run: (view) => {
+              // Alternative trigger
+              console.log("[Manual] Triggering completion with Ctrl-.");
+              return startCompletion(view);
+            }
+          },
+          {
+            key: "Alt-/",
+            run: (view) => {
+              // Another alternative trigger
+              console.log("[Manual] Triggering completion with Alt-/");
               return startCompletion(view);
             }
           },
