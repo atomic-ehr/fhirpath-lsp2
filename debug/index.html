@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FHIRPath LSP Debug Client</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- CodeMirror CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/theme/default.min.css">
+  
+  <!-- CodeMirror JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/javascript/javascript.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            'mono': ['Consolas', 'Courier New', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* CodeMirror custom styles */
+    .CodeMirror {
+      height: 100%;
+      font-size: 14px;
+      font-family: 'Consolas', 'Courier New', monospace;
+    }
+    
+    .CodeMirror-focused {
+      outline: none;
+    }
+    
+    /* Syntax highlighting colors */
+    .cm-keyword { color: #708; font-weight: bold; }
+    .cm-atom { color: #219; }
+    .cm-number { color: #164; }
+    .cm-def { color: #00f; }
+    .cm-variable { color: #05a; }
+    .cm-variable-2 { color: #085; }
+    .cm-variable-3 { color: #085; }
+    .cm-property { color: #05a; }
+    .cm-operator { color: #a11; }
+    .cm-comment { color: #a50; font-style: italic; }
+    .cm-string { color: #a11; }
+    .cm-string-2 { color: #f50; }
+    .cm-meta { color: #555; }
+    .cm-error { color: #f00; }
+    .cm-qualifier { color: #555; }
+    .cm-builtin { color: #30a; }
+    .cm-bracket { color: #997; }
+    .cm-tag { color: #170; }
+    .cm-attribute { color: #00c; }
+    .cm-header { color: #000; font-weight: bold; }
+    .cm-quote { color: #090; }
+    .cm-hr { color: #999; }
+    .cm-link { color: #00c; }
+    
+    /* Custom error underline styles */
+    .cm-error-range {
+      text-decoration: underline wavy #ef4444;
+      text-underline-offset: 3px;
+      cursor: help;
+    }
+    
+    .cm-warning-range {
+      text-decoration: underline wavy #f59e0b;
+      text-underline-offset: 3px;
+      cursor: help;
+    }
+    
+    .cm-info-range {
+      text-decoration: underline wavy #3b82f6;
+      text-underline-offset: 3px;
+      cursor: help;
+    }
+    
+    /* Tooltip styles */
+    .cm-diagnostic-tooltip {
+      position: absolute;
+      z-index: 10000;
+      background: #1f2937;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      max-width: 400px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      pointer-events: none;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    
+    .cm-diagnostic-tooltip.error {
+      background: #991b1b;
+      border: 1px solid #ef4444;
+    }
+    
+    .cm-diagnostic-tooltip.warning {
+      background: #92400e;
+      border: 1px solid #f59e0b;
+    }
+    
+    .cm-diagnostic-tooltip.info {
+      background: #1e40af;
+      border: 1px solid #3b82f6;
+    }
+    
+    .cm-diagnostic-tooltip::before {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 20px;
+      width: 8px;
+      height: 8px;
+      background: inherit;
+      transform: rotate(45deg);
+      border-right: 1px solid;
+      border-bottom: 1px solid;
+      border-color: inherit;
+    }
+  </style>
+</head>
+<body class="bg-white text-gray-900 h-screen flex flex-col font-sans">
+  <div class="flex flex-1 overflow-hidden">
+    <!-- Left Panel: Editor + Diagnostics -->
+    <div class="w-1/2 flex flex-col border-r border-gray-200">
+      <!-- Editor -->
+      <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+        <span class="font-semibold text-sm">Editor</span>
+        <div class="flex items-center gap-2">
+          <button 
+            id="connectBtn"
+            class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+          >
+            Connect
+          </button>
+          <button 
+            id="disconnectBtn"
+            disabled
+            class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+          >
+            Disconnect
+          </button>
+          <span 
+            id="status"
+            class="px-2 py-0.5 text-xs font-semibold rounded bg-red-500 text-white"
+            data-status="disconnected"
+          >
+            Disconnected
+          </span>
+        </div>
+      </div>
+      <div id="editor" class="h-96 bg-white text-gray-900"></div>
+      
+      <!-- Diagnostics Panel (below editor) -->
+      <div class="flex-1 flex flex-col">
+        <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+          <span class="font-semibold text-sm">
+            Diagnostics (<span id="diagnosticCount">0</span>)
+          </span>
+          <button 
+            id="clearDiagnostics"
+            class="px-2 py-0.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded transition-colors"
+          >
+            Clear
+          </button>
+        </div>
+        <div id="diagnostics" class="flex-1 overflow-y-auto p-3 font-mono text-xs space-y-2 bg-gray-50"></div>
+      </div>
+    </div>
+    
+    <!-- Right Panel: Messages -->
+    <div class="w-1/2 flex flex-col">
+      <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
+        <span class="font-semibold text-sm">LSP Messages</span>
+        <button 
+          id="clearMessages"
+          class="px-2 py-0.5 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded transition-colors"
+        >
+          Clear
+        </button>
+      </div>
+      <div id="messages" class="flex-1 overflow-y-auto bg-gray-50"></div>
+    </div>
+  </div>
+  
+  <style>
+    /* Custom styles for diagnostics and messages */
+    .diagnostic-error {
+      @apply p-2 rounded border-l-4 border-red-500 bg-red-50;
+    }
+    .diagnostic-warning {
+      @apply p-2 rounded border-l-4 border-yellow-500 bg-yellow-50;
+    }
+    .diagnostic-info {
+      @apply p-2 rounded border-l-4 border-blue-500 bg-blue-50;
+    }
+    
+    .message-item {
+      @apply bg-white p-3 cursor-pointer hover:bg-gray-50 transition-colors border-b border-gray-200;
+    }
+    
+    .message-item:last-child {
+      @apply border-b-0;
+    }
+    
+    .message-send {
+      @apply border-l-4 border-teal-500;
+    }
+    
+    .message-receive {
+      @apply border-l-4 border-orange-500;
+    }
+    
+    .message-header {
+      @apply text-xs font-mono;
+    }
+    
+    .message-type-send {
+      @apply text-teal-600 font-semibold;
+    }
+    
+    .message-type-receive {
+      @apply text-orange-600 font-semibold;
+    }
+    
+    .message-method {
+      @apply text-gray-700;
+    }
+    
+    .message-body {
+      @apply mt-2 p-2 bg-gray-50 rounded text-xs font-mono overflow-x-auto;
+    }
+    
+    .message-chevron {
+      @apply transition-transform duration-200;
+    }
+    
+    .message-chevron.expanded {
+      @apply rotate-90;
+    }
+    
+    /* Status indicator styles */
+    #status[data-status="connected"] {
+      @apply bg-green-500 text-white;
+    }
+    #status[data-status="connecting"] {
+      @apply bg-yellow-500 text-white;
+    }
+    #status[data-status="disconnected"] {
+      @apply bg-red-500 text-white;
+    }
+  </style>
+  
+  <script type="module" src="./client.ts"></script>
+</body>
+</html>
