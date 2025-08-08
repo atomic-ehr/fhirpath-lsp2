@@ -40,73 +40,48 @@ export class LSPClient {
 
     // Create LSP completion source with intelligent caching
     const lspCompletionSource = async (context: CompletionContext): Promise<CompletionResult | null> => {
-      // Match patterns for FHIRPath expressions
-      const wordMatch = context.matchBefore(/\w+/);
-      const dotMatch = context.matchBefore(/\.\w*/);
-      const fullMatch = context.matchBefore(/[\w.]+/);
+      console.log(`[Completion] Source called at position ${context.pos}`);
       
-      // Determine what triggered the completion
+      // Simple matching for testing
+      const match = context.matchBefore(/[\w.]*/)
+      if (!match && !context.explicit) {
+        console.log(`[Completion] No match found`);
+        return null;
+      }
+      
       const text = context.state.doc.toString();
       const beforeCursor = text.slice(Math.max(0, context.pos - 1), context.pos);
       const justTypedDot = beforeCursor === '.';
       
-      // Decide which match to use based on context
-      let match = fullMatch;
-      if (justTypedDot) {
-        // If we just typed a dot, we want to complete from the dot
-        match = dotMatch || fullMatch;
-      } else if (!dotMatch && wordMatch) {
-        // If we're typing a word not after a dot
-        match = wordMatch;
-      }
-      
-      if (!match && !context.explicit) return null;
-      
-      // Only trigger on certain conditions
-      const shouldTrigger = justTypedDot || context.explicit || (dotMatch && dotMatch.text.length > 1);
-      
-      if (!shouldTrigger) return null;
-
-      console.log(`[Completion] Triggered - JustTypedDot: ${justTypedDot}, Match: "${match?.text}", Explicit: ${context.explicit}`);
+      // Always trigger for testing
+      console.log(`[Completion] Match: "${match?.text}", JustTypedDot: ${justTypedDot}, Explicit: ${context.explicit}`);
 
       try {
-        // Get completions from LSP
-        const completions = await this.requestCompletions(context.pos, justTypedDot);
-        if (!completions || completions.length === 0) {
-          console.log(`[Completion] No completions received from LSP`);
-          return null;
-        }
-
-        console.log(`[Completion] Received ${completions.length} completions from LSP`);
-
-        // Determine caching strategy
-        let validFor: RegExp | undefined;
-        if (justTypedDot) {
-          // After typing a dot, cache aggressively for property completion
-          validFor = /^\.?\w*$/;
-          console.log(`[Completion] Using dot-completion caching pattern`);
-        } else if (dotMatch) {
-          // Continuing to type after a dot
-          validFor = /^\w*$/;
-          console.log(`[Completion] Using word-completion caching pattern`);
-        } else {
-          // General word completion
-          validFor = /^\w*$/;
-        }
-
-        return {
+        // First, let's try with static completions to see if popup works
+        const testCompletions = [
+          { label: "Patient", kind: 7, detail: "FHIR Resource" },
+          { label: "name", kind: 5, detail: "HumanName[]" },
+          { label: "birthDate", kind: 5, detail: "date" },
+          { label: "gender", kind: 5, detail: "code" },
+          { label: "address", kind: 5, detail: "Address[]" }
+        ];
+        
+        console.log(`[Completion] Returning ${testCompletions.length} test completions`);
+        
+        const result = {
           from: match ? match.from : context.pos,
-          options: completions.map(item => ({
+          to: context.pos,
+          options: testCompletions.map(item => ({
             label: item.label,
             type: this.getCompletionType(item.kind),
-            detail: item.detail,
-            info: item.documentation,
-            apply: item.insertText || item.label
+            detail: item.detail
           })),
-          // Enable client-side filtering with validFor
-          validFor: validFor,
-          filter: true  // Enable filtering
+          validFor: /^\w*$/
         };
+        
+        console.log(`[Completion] Result:`, result);
+        return result;
+        
       } catch (error) {
         console.error("Failed to get completions:", error);
         return null;

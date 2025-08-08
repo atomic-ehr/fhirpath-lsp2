@@ -10,6 +10,10 @@
   
   <style>
     /* CodeMirror 6 autocomplete styles */
+    .cm-tooltip {
+      z-index: 1000 !important;
+    }
+    
     .cm-tooltip-autocomplete {
       font-family: 'Consolas', 'Courier New', monospace;
       font-size: 13px;
@@ -17,6 +21,7 @@
       border: 1px solid #ddd;
       border-radius: 4px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      z-index: 1000 !important;
     }
     
     .cm-tooltip-autocomplete ul {
@@ -198,7 +203,7 @@
           </span>
         </div>
       </div>
-      <div id="editor" class="h-96 bg-white text-gray-900"></div>
+      <div id="editor" class="h-96 bg-white text-gray-900" style="position: relative; overflow: visible;"></div>
       
       <!-- Diagnostics Panel (below editor) -->
       <div class="flex-1 flex flex-col">
