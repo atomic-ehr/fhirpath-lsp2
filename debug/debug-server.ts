@@ -7,8 +7,26 @@ import indexHtml from './index.html';
 // Import the WebSocket handlers from the actual LSP server
 import { createWebSocketHandlers } from '../src/server';
 
+// Import FHIRModelProvider to initialize it at startup
+import { FHIRModelProvider } from '@atomic-ehr/fhirpath';
+
 // Get port from environment variable (for Render) or use default
 const port = parseInt(process.env.PORT || '8080', 10);
+
+// Initialize the FHIR model provider at startup
+console.log('Initializing FHIR Model Provider...');
+const modelProvider = new FHIRModelProvider({
+  packages: [{ name: 'hl7.fhir.r4.core', version: '4.0.1' }],
+  cacheDir: './.fhir-cache'
+});
+
+// Initialize the model provider before starting the server
+await modelProvider.initialize().then(() => {
+  console.log('✅ FHIR Model Provider initialized successfully');
+}).catch(error => {
+  console.error('⚠️  Failed to initialize FHIR Model Provider:', error);
+  console.log('Continuing without full type support...');
+});
 
 // Start HTTP server with HTML imports support and integrated LSP WebSocket
 const server = Bun.serve({
