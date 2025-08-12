@@ -7,18 +7,24 @@ import indexHtml from './index.html';
 // Import the WebSocket handlers from the actual LSP server
 import { createWebSocketHandlers } from '../src/server';
 
+// Get port from environment variable (for Render) or use default
+const port = parseInt(process.env.PORT || '8080', 10);
+
 // Start HTTP server with HTML imports support and integrated LSP WebSocket
 const server = Bun.serve({
-  port: 8080,
+  port: port,
   
   routes: {
     "/": indexHtml,
     "/health": {
       GET: (req) => {
+        const host = req.headers.get('host') || `localhost:${port}`;
+        const protocol = req.headers.get('x-forwarded-proto') || 'http';
+        const wsProtocol = protocol === 'https' ? 'wss' : 'ws';
         return Response.json({
           status: 'running',
-          debugServer: 'http://localhost:8080',
-          lspWebSocket: 'ws://localhost:8080/lsp'
+          debugServer: `${protocol}://${host}`,
+          lspWebSocket: `${wsProtocol}://${host}/lsp`
         });
       }
     }
@@ -49,9 +55,9 @@ const server = Bun.serve({
 });
 
 console.log('\n✨ Debug environment ready!');
-console.log('📍 Debug client: http://localhost:8080');
-console.log('🔌 LSP WebSocket: ws://localhost:8080/lsp');
-console.log('❤️  Health check: http://localhost:8080/health\n');
+console.log(`📍 Debug client: http://localhost:${port}`);
+console.log(`🔌 LSP WebSocket: ws://localhost:${port}/lsp`);
+console.log(`❤️  Health check: http://localhost:${port}/health\n`);
 
 // Cleanup on exit
 process.on('SIGINT', () => {

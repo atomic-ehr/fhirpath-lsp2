@@ -4,6 +4,7 @@
   "description": "Minimal LSP server implementation",
   "main": "out/server.js",
   "scripts": {
+    "start": "bun debug/debug-server.ts",
     "build": "bunx tsc",
     "watch": "bunx tsc --watch",
     "dev": "bun run build && code --extensionDevelopmentPath=`pwd`/client",

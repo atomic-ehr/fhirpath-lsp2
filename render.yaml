@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: fhirpath-lsp-debug
+    runtime: docker
+    # Render will use the Dockerfile in the root directory
+    dockerfilePath: ./Dockerfile
+    # Health check endpoint
+    healthCheckPath: /health
+    # Environment variables
+    envVars:
+      - key: NODE_ENV
+        value: production
+    # Auto-deploy on push to main branch
+    autoDeploy: true
