@@ -457,8 +457,15 @@ export class LSPClient {
     }, 500) as any;
   }
 
-  connect(url: string = "ws://localhost:8080/lsp"): void {
-    this.updateStatus("connecting", "Connecting...");
+  connect(url?: string): void {
+    // Dynamically determine WebSocket URL based on current location
+    if (!url) {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
+      url = `${protocol}//${host}/lsp`;
+    }
+    
+    this.updateStatus("connecting", `Connecting to ${url}...`);
 
     this.ws = new WebSocket(url);
 
