@@ -18,7 +18,7 @@
     "debug:bg": "bun debug/debug-server.ts --hot --watch &"
   },
   "dependencies": {
-    "@atomic-ehr/fhirpath": "file:../fhirpath",
+    "@atomic-ehr/fhirpath": "github:atomic-ehr/fhirpath#main",
     "@codemirror/autocomplete": "^6.18.6",
     "@codemirror/commands": "^6.8.1",
     "@codemirror/language": "^6.11.2",
