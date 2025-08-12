@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+/// <reference path="./html.d.ts" />
 
 // Import HTML as a module using Bun's HTML import feature
 import indexHtml from './index.html';

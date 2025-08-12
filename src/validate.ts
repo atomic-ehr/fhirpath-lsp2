@@ -13,7 +13,7 @@ export async function validateDocument(
   try {
     
     // Analyze the FHIRPath expression with error recovery enabled and R4 model provider
-    const analysisResult = analyze(text, {
+    const analysisResult = await analyze(text, {
       errorRecovery: true, // Enable error recovery for LSP mode
       modelProvider: modelProvider, // Use R4 model provider for type checking
     });

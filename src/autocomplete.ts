@@ -108,7 +108,7 @@ export function setupCompletionHandler(
       // Use the real FHIRPath completion provider
       try {
         const fhirpathCompletions: FHIRPathCompletionItem[] =
-          provideCompletions(text, offset, completionOptions);
+          await provideCompletions(text, offset, completionOptions);
 
         connection.console.log(
           `[Server] FHIRPath provider returned ${fhirpathCompletions.length} completions`,

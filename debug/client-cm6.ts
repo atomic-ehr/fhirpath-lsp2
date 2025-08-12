@@ -1,11 +1,28 @@
 // Import CodeMirror 6 modules
-import { EditorState, StateEffect, StateField } from '@codemirror/state';
-import { EditorView, keymap, ViewUpdate, Decoration, DecorationSet, tooltips } from '@codemirror/view';
-import { basicSetup } from 'codemirror';
-import { autocompletion, CompletionContext, CompletionResult, acceptCompletion, completionKeymap, startCompletion } from '@codemirror/autocomplete';
-import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
-import { linter, Diagnostic } from '@codemirror/lint';
-import { oneDark } from '@codemirror/theme-one-dark';
+import { EditorState, StateEffect, StateField } from "@codemirror/state";
+import {
+  EditorView,
+  keymap,
+  ViewUpdate,
+  Decoration,
+  type DecorationSet,
+  tooltips,
+} from "@codemirror/view";
+import { basicSetup } from "codemirror";
+import {
+  autocompletion,
+  CompletionContext,
+  type CompletionResult,
+  acceptCompletion,
+  completionKeymap,
+  startCompletion,
+} from "@codemirror/autocomplete";
+import {
+  syntaxHighlighting,
+  defaultHighlightStyle,
+} from "@codemirror/language";
+import { linter, type Diagnostic } from "@codemirror/lint";
+import { oneDark } from "@codemirror/theme-one-dark";
 
 // LSP Client for WebSocket connection
 export class LSPClient {
@@ -39,50 +56,79 @@ export class LSPClient {
   .first()`;
 
     // Create LSP completion source with intelligent caching
-    const lspCompletionSource = async (context: CompletionContext): Promise<CompletionResult | null> => {
+    const lspCompletionSource = async (
+      context: CompletionContext,
+    ): Promise<CompletionResult | null> => {
       console.log(`[Completion] Source called at position ${context.pos}`);
-      
+
       // Get the text and check what's before cursor
       const text = context.state.doc.toString();
-      const beforeCursor = text.slice(Math.max(0, context.pos - 1), context.pos);
-      const justTypedDot = beforeCursor === '.';
-      
+      const beforeCursor = text.slice(
+        Math.max(0, context.pos - 1),
+        context.pos,
+      );
+      const justTypedDot = beforeCursor === ".";
+
       // Log context for debugging cache invalidation
-      const textBeforeCursor = text.slice(Math.max(0, context.pos - 20), context.pos);
-      console.log(`[Completion] Text before cursor: "${textBeforeCursor}", Just typed dot: ${justTypedDot}`);
-      
+      const textBeforeCursor = text.slice(
+        Math.max(0, context.pos - 20),
+        context.pos,
+      );
+      console.log(
+        `[Completion] Text before cursor: "${textBeforeCursor}", Just typed dot: ${justTypedDot}`,
+      );
+
       // Check for different patterns
       const dotMatch = context.matchBefore(/\.\w*/);
       const wordMatch = context.matchBefore(/\w+/);
       const fullMatch = context.matchBefore(/\w+\.?/);
-      const parenMatch = context.matchBefore(/\(\s*\w*/);  // Match '(' followed by optional space and word chars
-      
+      const parenMatch = context.matchBefore(/\(\s*\w*/); // Match '(' followed by optional space and word chars
+
       // Check if we're after an opening parenthesis
-      const afterParen = beforeCursor === '(' || (context.pos > 1 && text.slice(context.pos - 2, context.pos) === '( ');
-      
+      const afterParen =
+        beforeCursor === "(" ||
+        (context.pos > 1 && text.slice(context.pos - 2, context.pos) === "( ");
+
       // Log what we found
-      console.log(`[Completion] Just typed dot: ${justTypedDot}, After paren: ${afterParen}, Dot match: "${dotMatch?.text}", Paren match: "${parenMatch?.text}", Word match: "${wordMatch?.text}", Explicit: ${context.explicit}`);
-      
+      console.log(
+        `[Completion] Just typed dot: ${justTypedDot}, After paren: ${afterParen}, Dot match: "${dotMatch?.text}", Paren match: "${parenMatch?.text}", Word match: "${wordMatch?.text}", Explicit: ${context.explicit}`,
+      );
+
       // Check if this is a cached call (filtering) vs a new request
       // A cached call happens when we're filtering existing results
-      const textAfterDot = dotMatch ? dotMatch.text.substring(1) : '';
-      const textAfterParen = parenMatch ? parenMatch.text.replace(/\(\s*/, '') : '';
-      
-      const isCachedCall = (
+      const textAfterDot = dotMatch ? dotMatch.text.substring(1) : "";
+      const textAfterParen = parenMatch
+        ? parenMatch.text.replace(/\(\s*/, "")
+        : "";
+
+      const isCachedCall =
         // Filtering after dot
-        (dotMatch && textAfterDot.length > 0 && !justTypedDot && /^\w+$/.test(textAfterDot)) ||
+        (dotMatch &&
+          textAfterDot.length > 0 &&
+          !justTypedDot &&
+          /^\w+$/.test(textAfterDot)) ||
         // Filtering inside parentheses
-        (parenMatch && textAfterParen.length > 0 && !afterParen && /^\w+$/.test(textAfterParen))
-      );
-      
+        (parenMatch &&
+          textAfterParen.length > 0 &&
+          !afterParen &&
+          /^\w+$/.test(textAfterParen));
+
       if (isCachedCall) {
-        console.log(`[Completion] CACHED CALL - CodeMirror is filtering for "${textAfterDot || textAfterParen}"`);
+        console.log(
+          `[Completion] CACHED CALL - CodeMirror is filtering for "${textAfterDot || textAfterParen}"`,
+        );
       } else {
         console.log(`[Completion] NEW REQUEST - Will fetch from LSP server`);
       }
-      
+
       // Trigger if we just typed a dot, after parenthesis, or it's explicit
-      if (!justTypedDot && !afterParen && !context.explicit && !dotMatch && !parenMatch) {
+      if (
+        !justTypedDot &&
+        !afterParen &&
+        !context.explicit &&
+        !dotMatch &&
+        !parenMatch
+      ) {
         console.log(`[Completion] Not triggering - no completion context`);
         return null;
       }
@@ -90,28 +136,37 @@ export class LSPClient {
       try {
         // Get completions from LSP if connected, otherwise use test data
         let completions: any[] = [];
-        
+
         // Only request from LSP if this is not a cached/filtering call
         if (!isCachedCall) {
           if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            completions = await this.requestCompletions(context.pos, justTypedDot);
-            console.log(`[Completion] Received ${completions.length} items from LSP server`);
+            completions = await this.requestCompletions(
+              context.pos,
+              justTypedDot,
+            );
+            console.log(
+              `[Completion] Received ${completions.length} items from LSP server`,
+            );
           } else {
-            console.log(`[Completion] No LSP connection - no completions available`);
+            console.log(
+              `[Completion] No LSP connection - no completions available`,
+            );
             return null;
           }
         } else {
           // This is a cached call - CodeMirror will filter the previously returned results
-          console.log(`[Completion] Skipping LSP request - CodeMirror will filter cached results`);
+          console.log(
+            `[Completion] Skipping LSP request - CodeMirror will filter cached results`,
+          );
           return null; // Let CodeMirror use cached results
         }
-        
+
         // Determine the range to replace
         let from = context.pos;
-        
+
         // If we just typed a dot, we want to insert after it
         if (justTypedDot) {
-          from = context.pos;  // Start from current position (after the dot)
+          from = context.pos; // Start from current position (after the dot)
         } else if (dotMatch) {
           // We're completing after a dot, replace from the dot
           from = dotMatch.from;
@@ -121,38 +176,50 @@ export class LSPClient {
         } else if (fullMatch) {
           from = fullMatch.from;
         }
-        
+
         const result = {
           from: from,
           to: context.pos,
-          options: completions.map(item => ({
+          options: completions.map((item) => ({
             label: item.label,
             type: this.getCompletionType(item.kind),
             detail: item.detail || item.documentation,
-            apply: item.insertText || item.label
+            apply: item.insertText || item.label,
           })),
           // Enable caching and client-side filtering
           // Cache is valid while typing word characters (letters, numbers, underscore)
           // Cache is invalidated when typing dots, spaces, operators, etc.
-          validFor: /^[a-zA-Z0-9_]*$/
+          validFor: /^[a-zA-Z0-9_]*$/,
         };
-        
-        console.log(`[Completion] Returning result from ${from} to ${context.pos} with ${result.options.length} options (cache enabled for word chars)`);
-        
+
+        console.log(
+          `[Completion] Returning result from ${from} to ${context.pos} with ${result.options.length} options (cache enabled for word chars)`,
+        );
+
         // Print completion summary
-        const properties = result.options.filter(o => o.type === 'property');
-        const functions = result.options.filter(o => o.type === 'function');
-        const others = result.options.filter(o => o.type !== 'property' && o.type !== 'function');
-        
-        console.log(`[Completion Summary] ${properties.length} properties, ${functions.length} functions, ${others.length} others`);
+        const properties = result.options.filter((o) => o.type === "property");
+        const functions = result.options.filter((o) => o.type === "function");
+        const others = result.options.filter(
+          (o) => o.type !== "property" && o.type !== "function",
+        );
+
+        console.log(
+          `[Completion Summary] ${properties.length} properties, ${functions.length} functions, ${others.length} others`,
+        );
         if (properties.length > 0 && properties.length <= 15) {
-          console.log(`  Properties: ${properties.map(p => p.label).join(', ')}`);
+          console.log(
+            `  Properties: ${properties.map((p) => p.label).join(", ")}`,
+          );
         }
         if (functions.length > 0 && functions.length <= 10) {
-          console.log(`  Functions: ${functions.slice(0, 10).map(f => f.label).join(', ')}${functions.length > 10 ? '...' : ''}`);
+          console.log(
+            `  Functions: ${functions
+              .slice(0, 10)
+              .map((f) => f.label)
+              .join(", ")}${functions.length > 10 ? "..." : ""}`,
+          );
         }
         return result;
-        
       } catch (error) {
         console.error("Failed to get completions:", error);
         return null;
@@ -161,11 +228,12 @@ export class LSPClient {
 
     // Create linter for diagnostics
     const lspLinter = linter((view) => {
-      return this.currentDiagnostics.map(d => ({
+      return this.currentDiagnostics.map((d) => ({
         from: this.positionToOffset(view.state.doc.toString(), d.range.start),
         to: this.positionToOffset(view.state.doc.toString(), d.range.end),
-        severity: d.severity === 1 ? 'error' : d.severity === 2 ? 'warning' : 'info',
-        message: d.message
+        severity:
+          d.severity === 1 ? "error" : d.severity === 2 ? "warning" : "info",
+        message: d.message,
       }));
     });
 
@@ -177,25 +245,25 @@ export class LSPClient {
         // Theme for better visibility
         EditorView.theme({
           "&": {
-            fontSize: "14px"
+            fontSize: "14px",
           },
           ".cm-tooltip.cm-tooltip-autocomplete": {
             "& > ul": {
               fontFamily: "monospace",
               maxHeight: "200px",
-              maxWidth: "400px"
-            }
-          }
+              maxWidth: "400px",
+            },
+          },
         }),
         autocompletion({
           override: [lspCompletionSource],
           activateOnTyping: true,
-          activateOnTypingDelay: 0,     // No delay for triggers
-          selectOnOpen: true,           // Auto-select first item
-          closeOnBlur: true,            // Close on blur
-          maxRenderedOptions: 100,      // Max items to render
-          defaultKeymap: true,          // Use default keybindings
-          icons: true                   // Add icons for completion types
+          activateOnTypingDelay: 0, // No delay for triggers
+          selectOnOpen: true, // Auto-select first item
+          closeOnBlur: true, // Close on blur
+          maxRenderedOptions: 100, // Max items to render
+          defaultKeymap: true, // Use default keybindings
+          icons: true, // Add icons for completion types
         }),
         // Add completion keymap
         keymap.of([
@@ -206,7 +274,7 @@ export class LSPClient {
               // Manually trigger completion
               console.log("[Manual] Triggering completion with Cmd-Space");
               return startCompletion(view);
-            }
+            },
           },
           {
             key: "Ctrl-.",
@@ -214,7 +282,7 @@ export class LSPClient {
               // Alternative trigger
               console.log("[Manual] Triggering completion with Ctrl-.");
               return startCompletion(view);
-            }
+            },
           },
           {
             key: "Alt-/",
@@ -222,7 +290,7 @@ export class LSPClient {
               // Another alternative trigger
               console.log("[Manual] Triggering completion with Alt-/");
               return startCompletion(view);
-            }
+            },
           },
           {
             key: "Enter",
@@ -232,8 +300,8 @@ export class LSPClient {
               // Otherwise, insert a newline
               view.dispatch(view.state.replaceSelection("\n"));
               return true;
-            }
-          }
+            },
+          },
         ]),
         lspLinter,
         EditorView.updateListener.of((update: ViewUpdate) => {
@@ -241,18 +309,27 @@ export class LSPClient {
             // Check if user just typed a trigger character BEFORE debouncing
             const changes = update.state.doc.sliceString(0);
             const pos = update.state.selection.main.head;
-            const justTypedDot = pos > 0 && changes[pos - 1] === '.';
-            const justTypedParen = pos > 0 && changes[pos - 1] === '(';
-            const justTypedSpace = pos > 1 && changes[pos - 1] === ' ' && changes[pos - 2] === '(';
-            
+            const justTypedDot = pos > 0 && changes[pos - 1] === ".";
+            const justTypedParen = pos > 0 && changes[pos - 1] === "(";
+            const justTypedSpace =
+              pos > 1 && changes[pos - 1] === " " && changes[pos - 2] === "(";
+
             if (justTypedDot || justTypedParen || justTypedSpace) {
-              const triggerChar = justTypedDot ? '.' : justTypedParen ? '(' : '( ';
-              console.log(`[Editor] Detected trigger '${triggerChar}' at position ${pos}`);
+              const triggerChar = justTypedDot
+                ? "."
+                : justTypedParen
+                  ? "("
+                  : "( ";
+              console.log(
+                `[Editor] Detected trigger '${triggerChar}' at position ${pos}`,
+              );
               // Immediately update document for trigger characters (no debounce)
               this.updateDocument();
               // Then trigger completion
               setTimeout(() => {
-                console.log(`[Editor] Triggering completion after '${triggerChar}'`);
+                console.log(
+                  `[Editor] Triggering completion after '${triggerChar}'`,
+                );
                 startCompletion(update.view);
               }, 10);
             } else {
@@ -261,19 +338,22 @@ export class LSPClient {
             }
           }
         }),
-        syntaxHighlighting(defaultHighlightStyle)
-      ]
+        syntaxHighlighting(defaultHighlightStyle),
+      ],
     });
 
     // Create editor view
     this.editorView = new EditorView({
       state,
-      parent: editorElement
+      parent: editorElement,
     });
   }
 
-  private positionToOffset(text: string, position: { line: number; character: number }): number {
-    const lines = text.split('\n');
+  private positionToOffset(
+    text: string,
+    position: { line: number; character: number },
+  ): number {
+    const lines = text.split("\n");
     let offset = 0;
     for (let i = 0; i < position.line && i < lines.length; i++) {
       offset += lines[i].length + 1; // +1 for newline
@@ -281,8 +361,11 @@ export class LSPClient {
     return offset + position.character;
   }
 
-  private offsetToPosition(text: string, offset: number): { line: number; character: number } {
-    const lines = text.split('\n');
+  private offsetToPosition(
+    text: string,
+    offset: number,
+  ): { line: number; character: number } {
+    const lines = text.split("\n");
     let currentOffset = 0;
     for (let line = 0; line < lines.length; line++) {
       const lineLength = lines[line].length + 1; // +1 for newline
@@ -291,10 +374,16 @@ export class LSPClient {
       }
       currentOffset += lineLength;
     }
-    return { line: lines.length - 1, character: lines[lines.length - 1].length };
+    return {
+      line: lines.length - 1,
+      character: lines[lines.length - 1].length,
+    };
   }
 
-  private async requestCompletions(offset: number, justTypedDot: boolean): Promise<any[]> {
+  private async requestCompletions(
+    offset: number,
+    justTypedDot: boolean,
+  ): Promise<any[]> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.editorView) {
       return [];
     }
@@ -306,7 +395,9 @@ export class LSPClient {
     const triggerKind = justTypedDot ? 2 : 1; // 2 = TriggerCharacter, 1 = Invoked
     const triggerCharacter = justTypedDot ? "." : undefined;
 
-    console.log(`[LSP Request] Completion at position ${position.line}:${position.character}, trigger: ${triggerKind}`);
+    console.log(
+      `[LSP Request] Completion at position ${position.line}:${position.character}, trigger: ${triggerKind}`,
+    );
 
     try {
       const response = await this.sendRequest("textDocument/completion", {
@@ -314,8 +405,8 @@ export class LSPClient {
         position: position,
         context: {
           triggerKind: triggerKind,
-          triggerCharacter: triggerCharacter
-        }
+          triggerCharacter: triggerCharacter,
+        },
       });
 
       if (!response || !response.result) {
@@ -323,16 +414,20 @@ export class LSPClient {
         return [];
       }
 
-      const items = Array.isArray(response.result) ? response.result : response.result.items || [];
+      const items = Array.isArray(response.result)
+        ? response.result
+        : response.result.items || [];
       console.log(`[LSP Response] Received ${items.length} completion items`);
-      
+
       // Print raw LSP completions for debugging
       console.group(`[LSP Completions] Raw items from server`);
       items.forEach((item: any, index: number) => {
-        console.log(`  ${index + 1}. ${item.label} (kind: ${item.kind}, detail: ${item.detail || 'none'})`);
+        console.log(
+          `  ${index + 1}. ${item.label} (kind: ${item.kind}, detail: ${item.detail || "none"})`,
+        );
       });
       console.groupEnd();
-      
+
       return items;
     } catch (error) {
       console.error("Failed to get completions:", error);
@@ -342,11 +437,16 @@ export class LSPClient {
 
   private getCompletionType(kind: number): string {
     switch (kind) {
-      case 7: return 'class';
-      case 3: return 'function';
-      case 5: return 'property';
-      case 6: return 'variable';
-      default: return 'text';
+      case 7:
+        return "class";
+      case 3:
+        return "function";
+      case 5:
+        return "property";
+      case 6:
+        return "variable";
+      default:
+        return "text";
     }
   }
 
@@ -497,7 +597,7 @@ export class LSPClient {
     // Force editor to re-run linter
     if (this.editorView) {
       this.editorView.dispatch({
-        effects: StateEffect.appendConfig.of([])
+        effects: StateEffect.appendConfig.of([]),
       });
     }
   }
@@ -570,8 +670,12 @@ export class LSPClient {
   }
 
   private updateButtons(connected: boolean): void {
-    const connectBtn = document.getElementById("connectBtn") as HTMLButtonElement;
-    const disconnectBtn = document.getElementById("disconnectBtn") as HTMLButtonElement;
+    const connectBtn = document.getElementById(
+      "connectBtn",
+    ) as HTMLButtonElement;
+    const disconnectBtn = document.getElementById(
+      "disconnectBtn",
+    ) as HTMLButtonElement;
 
     connectBtn.disabled = connected;
     disconnectBtn.disabled = !connected;
@@ -597,8 +701,8 @@ export class LSPClient {
             dynamicRegistration: false,
             completionItem: {
               snippetSupport: true,
-              documentationFormat: ["markdown", "plaintext"]
-            }
+              documentationFormat: ["markdown", "plaintext"],
+            },
           },
           publishDiagnostics: {
             relatedInformation: true,
@@ -615,7 +719,7 @@ export class LSPClient {
 
   private openDocument(): void {
     if (!this.editorView) return;
-    
+
     const content = this.editorView.state.doc.toString();
     this.documentVersion++;
 
@@ -630,7 +734,8 @@ export class LSPClient {
   }
 
   updateDocument(): void {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.editorView) return;
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || !this.editorView)
+      return;
 
     const content = this.editorView.state.doc.toString();
     this.documentVersion++;
@@ -685,8 +790,8 @@ document.getElementById("clearMessages")?.addEventListener("click", () => {
 });
 
 // Auto-connect on load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => client.connect(), 500);
   });
 } else {

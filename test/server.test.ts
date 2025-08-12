@@ -19,16 +19,19 @@ describe("LSP Server - Document Validation", () => {
     });
     
     client.notify("initialized");
+    
+    // Wait a bit for model provider to initialize
+    await new Promise(resolve => setTimeout(resolve, 2000));
   });
 
   afterAll(async () => {
     await client.close();
   });
 
-  test("should send constant diagnostics for any document", async () => {
+  test("should validate valid FHIRPath without errors", async () => {
     const uri = "file:///tmp/test-validation.fhirpath";
     
-    // Open any document
+    // Open a document with valid FHIRPath
     client.notify("textDocument/didOpen", {
       textDocument: {
         uri,
@@ -44,21 +47,35 @@ describe("LSP Server - Document Validation", () => {
     expect(diagnostics).not.toBeNull();
     expect(diagnostics.uri).toBe(uri);
     expect(diagnostics.diagnostics).toBeDefined();
-    expect(diagnostics.diagnostics.length).toBe(2);
+    // Valid expression should have no errors
+    expect(diagnostics.diagnostics.length).toBe(0);
+  });
+
+  test("should report errors for invalid FHIRPath syntax", async () => {
+    const uri = "file:///tmp/test-error.fhirpath";
     
-    // Check first diagnostic (error)
-    const firstDiagnostic = diagnostics.diagnostics[0];
-    expect(firstDiagnostic.message).toBe("Test error diagnostic");
-    expect(firstDiagnostic.severity).toBe(1); // Error
-    expect(firstDiagnostic.source).toBe("fhirpath-lsp");
-    expect(firstDiagnostic.range.start.line).toBe(0);
-    expect(firstDiagnostic.range.start.character).toBe(0);
+    // Open a document with invalid FHIRPath syntax
+    client.notify("textDocument/didOpen", {
+      textDocument: {
+        uri,
+        languageId: "fhirpath",
+        version: 1,
+        text: 'Patient...',  // Invalid syntax with multiple dots
+      },
+    });
+
+    // Wait for diagnostics
+    const diagnostics = await client.waitForDiagnostics();
     
-    // Check second diagnostic (warning)
-    const secondDiagnostic = diagnostics.diagnostics[1];
-    expect(secondDiagnostic.message).toBe("Test warning diagnostic");
-    expect(secondDiagnostic.severity).toBe(2); // Warning
-    expect(secondDiagnostic.source).toBe("fhirpath-lsp");
-    expect(secondDiagnostic.range.start.line).toBe(1);
+    expect(diagnostics).not.toBeNull();
+    expect(diagnostics.uri).toBe(uri);
+    expect(diagnostics.diagnostics).toBeDefined();
+    // Should have at least one error for syntax error
+    expect(diagnostics.diagnostics.length).toBeGreaterThan(0);
+    
+    // Check that we have an error diagnostic
+    const errorDiagnostic = diagnostics.diagnostics.find(d => d.severity === 1);
+    expect(errorDiagnostic).toBeDefined();
+    expect(errorDiagnostic.source).toBe("fhirpath-lsp");
   });
 });

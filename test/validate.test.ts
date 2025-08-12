@@ -2,6 +2,7 @@ import { test, expect, describe, beforeAll } from "bun:test";
 import { validateDocument } from "../src/validate";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import type { Connection } from "vscode-languageserver/node";
+import { FHIRModelProvider } from "@atomic-ehr/fhirpath";
 
 // Mock connection object
 class MockConnection {
@@ -22,10 +23,16 @@ class MockConnection {
 
 describe("validateDocument", () => {
   let mockConnection: MockConnection;
+  let modelProvider: FHIRModelProvider;
   
-  beforeAll(() => {
+  beforeAll(async () => {
     // Note: The first test might be slower as it initializes the model provider
     mockConnection = new MockConnection();
+    modelProvider = new FHIRModelProvider({
+      packages: [{ name: 'hl7.fhir.r4.core', version: '4.0.1' }],
+      cacheDir: './.fhir-cache'
+    });
+    await modelProvider.initialize();
   });
 
   test("should validate valid FHIRPath expression without errors", async () => {
@@ -37,7 +44,7 @@ describe("validateDocument", () => {
       "Patient.name.first()"
     );
     
-    await validateDocument(mockConnection as any, document);
+    await validateDocument(mockConnection as any, document, modelProvider);
     
     expect(mockConnection.sentDiagnostics).toHaveLength(1);
     expect(mockConnection.sentDiagnostics[0].uri).toBe("file:///test.fhirpath");
@@ -59,7 +66,7 @@ describe("validateDocument", () => {
       "Patient.name.("  // Invalid syntax - unclosed parenthesis
     );
     
-    await validateDocument(mockConnection as any, document);
+    await validateDocument(mockConnection as any, document, modelProvider);
     
     expect(mockConnection.sentDiagnostics).toHaveLength(1);
     const diagnostics = mockConnection.sentDiagnostics[0].diagnostics;
@@ -84,7 +91,7 @@ describe("validateDocument", () => {
       "Patient.unknownProperty"  // Property that doesn't exist on Patient
     );
     
-    await validateDocument(mockConnection as any, document);
+    await validateDocument(mockConnection as any, document, modelProvider);
     
     expect(mockConnection.sentDiagnostics).toHaveLength(1);
     const diagnostics = mockConnection.sentDiagnostics[0].diagnostics;
@@ -111,7 +118,7 @@ Observation.value`;
       multilineExpression
     );
     
-    await validateDocument(mockConnection as any, document);
+    await validateDocument(mockConnection as any, document, modelProvider);
     
     expect(mockConnection.sentDiagnostics).toHaveLength(1);
     expect(mockConnection.sentDiagnostics[0].diagnostics).toBeArray();
@@ -126,7 +133,7 @@ Observation.value`;
       ""
     );
     
-    await validateDocument(mockConnection as any, document);
+    await validateDocument(mockConnection as any, document, modelProvider);
     
     expect(mockConnection.sentDiagnostics).toHaveLength(1);
     expect(mockConnection.sentDiagnostics[0].diagnostics).toBeArray();
@@ -141,7 +148,7 @@ Observation.value`;
       "Patient.name.where(given = )"  // Incomplete expression
     );
     
-    await validateDocument(mockConnection as any, document);
+    await validateDocument(mockConnection as any, document, modelProvider);
     
     expect(mockConnection.sentDiagnostics).toHaveLength(1);
     const diagnostics = mockConnection.sentDiagnostics[0].diagnostics;
@@ -168,7 +175,7 @@ Observation.value`;
       complexExpression
     );
     
-    await validateDocument(mockConnection as any, document);
+    await validateDocument(mockConnection as any, document, modelProvider);
     
     expect(mockConnection.sentDiagnostics).toHaveLength(1);
     expect(mockConnection.sentDiagnostics[0].diagnostics).toBeArray();
@@ -189,7 +196,7 @@ Observation.value`;
       "Patient.birthDate + Patient.name"  // Can't add date and string
     );
     
-    await validateDocument(mockConnection as any, document);
+    await validateDocument(mockConnection as any, document, modelProvider);
     
     expect(mockConnection.sentDiagnostics).toHaveLength(1);
     const diagnostics = mockConnection.sentDiagnostics[0].diagnostics;
@@ -224,7 +231,7 @@ Observation.value`;
     );
     
     // Should not throw - errors should be reported as diagnostics
-    await validateDocument(mockConnection as any, document);
+    await validateDocument(mockConnection as any, document, modelProvider);
     
     expect(mockConnection.sentDiagnostics).toHaveLength(1);
     const diagnostics = mockConnection.sentDiagnostics[0].diagnostics;
