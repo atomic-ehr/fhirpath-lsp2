@@ -63,8 +63,8 @@ const server = Bun.serve({
     return new Response('Not found', { status: 404 });
   },
   
-  // Use the actual LSP WebSocket handlers from server.ts
-  websocket: createWebSocketHandlers(),
+  // Use the actual LSP WebSocket handlers from server.ts, passing the initialized model provider
+  websocket: createWebSocketHandlers(modelProvider),
   
   development: {
     hmr: true,

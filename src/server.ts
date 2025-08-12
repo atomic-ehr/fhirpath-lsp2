@@ -23,14 +23,17 @@ export interface ServerOptions {
 }
 
 // Setup connection with all handlers
-export async function setupConnection(connection: Connection): Promise<void> {
+export async function setupConnection(
+  connection: Connection,
+  providedModelProvider?: FHIRModelProvider
+): Promise<void> {
   // Create a simple text document manager
   const documents: TextDocuments<TextDocument> = new TextDocuments(
     TextDocument,
   );
 
   // Initialize FHIR model provider
-  let modelProvider: FHIRModelProvider | undefined;
+  let modelProvider: FHIRModelProvider | undefined = providedModelProvider;
   let modelProviderInitPromise: Promise<void> | undefined;
 
   async function getModelProvider(): Promise<FHIRModelProvider> {
@@ -193,7 +196,7 @@ export class WebSocketLSPConnection {
   private messageBuffer: any[] = [];
   private ws: any = null;
 
-  constructor() {
+  constructor(private modelProvider?: FHIRModelProvider) {
     // Create custom message reader/writer for WebSocket
     const reader = {
       onError: (_error: any) => {},
@@ -226,7 +229,7 @@ export class WebSocketLSPConnection {
 
     // Create the connection
     this.connection = createConnection(reader as any, writer as any);
-    setupConnection(this.connection);
+    setupConnection(this.connection, this.modelProvider);
   }
 
   private onMessage: ((message: any) => void) | null = null;
@@ -267,12 +270,12 @@ export class WebSocketLSPConnection {
 }
 
 // Create WebSocket handlers for Bun.serve
-export function createWebSocketHandlers() {
+export function createWebSocketHandlers(modelProvider?: FHIRModelProvider) {
   const connections = new Map<any, WebSocketLSPConnection>();
 
   return {
     open(ws: any) {
-      const lspConnection = new WebSocketLSPConnection();
+      const lspConnection = new WebSocketLSPConnection(modelProvider);
       connections.set(ws, lspConnection);
       lspConnection.handleWebSocketOpen(ws);
     },
