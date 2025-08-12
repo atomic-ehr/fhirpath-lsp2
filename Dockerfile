@@ -16,12 +16,6 @@ RUN bun install
 # Copy source code
 COPY . .
 
-# Ensure the GitHub dependency is built
-RUN cd node_modules/@atomic-ehr/fhirpath && bun install && bun run build
-
-# Build TypeScript if needed (optional, Bun can run TS directly)
-# RUN bun run build
-
 # Expose the port (Render will override with PORT env var)
 EXPOSE 8080
 
