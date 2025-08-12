@@ -1,17 +1,23 @@
 # Use the official Bun image
 FROM oven/bun:1.2.17-alpine
 
+# Install git for GitHub dependencies
+RUN apk add --no-cache git
+
 # Set working directory
 WORKDIR /app
 
 # Copy package files
-COPY package.json bun.lockb* ./
+COPY package.json bun.lock* ./
 
-# Install dependencies
-RUN bun install --frozen-lockfile
+# Install dependencies (without frozen lockfile to allow GitHub deps)
+RUN bun install
 
 # Copy source code
 COPY . .
+
+# Ensure the GitHub dependency is built
+RUN cd node_modules/@atomic-ehr/fhirpath && bun install && bun run build
 
 # Build TypeScript if needed (optional, Bun can run TS directly)
 # RUN bun run build
