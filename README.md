@@ -2,6 +2,8 @@
 
 A Language Server Protocol implementation for FHIRPath expressions, providing intelligent IDE support for FHIR query language development.
 
+🚀 **[Live Demo](https://fhirpath-lsp2.onrender.com/)** - Try the FHIRPath LSP in your browser!
+
 ## Overview
 
 This project implements an LSP server for FHIRPath, a path-based navigation and extraction language for FHIR (Fast Healthcare Interoperability Resources). The server provides real-time validation, syntax checking, and intelligent code assistance for FHIRPath expressions.
