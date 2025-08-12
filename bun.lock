@@ -4,7 +4,7 @@
     "": {
       "name": "minimal-lsp-server",
       "dependencies": {
-        "@atomic-ehr/fhirpath": "github:atomic-ehr/fhirpath#main",
+        "@atomic-ehr/fhirpath": "latest",
         "@codemirror/autocomplete": "^6.18.6",
         "@codemirror/commands": "^6.8.1",
         "@codemirror/language": "^6.11.2",
@@ -25,9 +25,9 @@
     },
   },
   "packages": {
-    "@atomic-ehr/fhir-canonical-manager": ["@atomic-ehr/fhir-canonical-manager@0.0.6", "", { "peerDependencies": { "typescript": "^5" }, "bin": { "fcm": "dist/cli/index.js" } }, "sha512-9vGLRHBKg6XH6gKoUXwcXJb5JpAu/vsPh2BdHUqvYkJGf5gbFpT84pAoBu3ocQXwZ+JwInemXlxqiTC4fh6TeA=="],
+    "@atomic-ehr/fhir-canonical-manager": ["@atomic-ehr/fhir-canonical-manager@0.0.11", "", { "peerDependencies": { "typescript": "^5" }, "bin": { "fcm": "dist/cli/index.js" } }, "sha512-BaAYcvHJWQ3uvWr77lZ20XWZ3EtxEbuEhPPpiwlpEWwrCUAnx+xYf4BZicIE7tHe3uBG5uP1XLk6ZQ30edLf5A=="],
 
-    "@atomic-ehr/fhirpath": ["@atomic-ehr/fhirpath@github:atomic-ehr/fhirpath#261bb9b", { "dependencies": { "@atomic-ehr/fhir-canonical-manager": "0.0.6", "@atomic-ehr/fhirschema": "^0.0.2", "@atomic-ehr/ucum": "^0.2.5" }, "peerDependencies": { "typescript": "^5" } }, "atomic-ehr-fhirpath-261bb9b"],
+    "@atomic-ehr/fhirpath": ["@atomic-ehr/fhirpath@0.0.2", "", { "dependencies": { "@atomic-ehr/fhir-canonical-manager": "latest", "@atomic-ehr/fhirschema": "latest", "@atomic-ehr/ucum": "^0.2.5" }, "peerDependencies": { "typescript": "^5" } }, "sha512-eDFt5T5ExGRjOQ1MUAvCAe2E9nA4/7aFyjTmpDMlCC2BbqkWoQMBUJmoGms0llFdWMUw8ViMcrO8SBSUXtxiTQ=="],
 
     "@atomic-ehr/fhirschema": ["@atomic-ehr/fhirschema@0.0.2", "", { "peerDependencies": { "typescript": "^5" } }, "sha512-OA4CVjTUEdw43Efg5I5rj95je4GC3lRiLM/kUqadcK3Po24vnINUsB8YdOP/F3ffdUYKQcJ+z09sWQVeAC2z/A=="],
 
@@ -57,13 +57,13 @@
 
     "@marijn/find-cluster-break": ["@marijn/find-cluster-break@1.0.2", "", {}, "sha512-l0h88YhZFyKdXIFNfSWpyjStDjGHwZ/U7iobcK1cQQD8sejsONdQtTVU+1wVN1PBw40PiiHB1vA5S7VTfQiP9g=="],
 
-    "@types/bun": ["@types/bun@1.2.19", "", { "dependencies": { "bun-types": "1.2.19" } }, "sha512-d9ZCmrH3CJ2uYKXQIUuZ/pUnTqIvLDS0SK7pFmbx8ma+ziH/FRMoAq5bYpRG7y+w1gl+HgyNZbtqgMq4W4e2Lg=="],
+    "@types/bun": ["@types/bun@1.2.20", "", { "dependencies": { "bun-types": "1.2.20" } }, "sha512-dX3RGzQ8+KgmMw7CsW4xT5ITBSCrSbfHc36SNT31EOUg/LA9JWq0VDdEXDRSe1InVWpd2yLUM1FUF/kEOyTzYA=="],
 
-    "@types/node": ["@types/node@20.19.9", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-cuVNgarYWZqxRJDQHEB58GEONhOK79QVR/qYx4S7kcUObQvUwvFnYxJuuHUKm2aieN9X3yZB4LZsuYNU1Qphsw=="],
+    "@types/node": ["@types/node@20.19.10", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-iAFpG6DokED3roLSP0K+ybeDdIX6Bc0Vd3mLW5uDqThPWtNos3E+EqOM11mPQHKzfWHqEBuLjIlsBQQ8CsISmQ=="],
 
-    "@types/react": ["@types/react@19.1.9", "", { "dependencies": { "csstype": "^3.0.2" } }, "sha512-WmdoynAX8Stew/36uTSVMcLJJ1KRh6L3IZRx1PZ7qJtBqT3dYTgyDTx8H1qoRghErydW7xw9mSJ3wS//tCRpFA=="],
+    "@types/react": ["@types/react@19.1.10", "", { "dependencies": { "csstype": "^3.0.2" } }, "sha512-EhBeSYX0Y6ye8pNebpKrwFJq7BoQ8J5SO6NlvNwwHjSj6adXJViPQrKlsyPw7hLBLvckEMO1yxeGdR82YBBlDg=="],
 
-    "bun-types": ["bun-types@1.2.19", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-uAOTaZSPuYsWIXRpj7o56Let0g/wjihKCkeRqUBhlLVM/Bt+Fj9xTo+LhC1OV1XDaGkz4hNC80et5xgy+9KTHQ=="],
+    "bun-types": ["bun-types@1.2.20", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-pxTnQYOrKvdOwyiyd/7sMt9yFOenN004Y6O4lCcCUoKVej48FS5cvTw9geRaEcB9TsDZaJKAxPTVvi8tFsVuXA=="],
 
     "codemirror": ["codemirror@6.0.2", "", { "dependencies": { "@codemirror/autocomplete": "^6.0.0", "@codemirror/commands": "^6.0.0", "@codemirror/language": "^6.0.0", "@codemirror/lint": "^6.0.0", "@codemirror/search": "^6.0.0", "@codemirror/state": "^6.0.0", "@codemirror/view": "^6.0.0" } }, "sha512-VhydHotNW5w1UGK0Qj96BwSk/Zqbp9WbnyK2W/eVMv4QyF41INRGpjUhFJY7/uDNuudSc33a/PKr4iDqRduvHw=="],
 
