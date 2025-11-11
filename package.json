@@ -2,11 +2,18 @@
   "name": "minimal-lsp-server",
   "version": "1.0.0",
   "description": "Minimal LSP server implementation",
-  "main": "out/server.js",
+  "main": "out/server.node.js",
+  "type": "module",
+  "exports": {
+    ".": {
+      "bun": "./out/server.node.js",
+      "default": "./out/server.browser.js"
+    }
+  },
   "scripts": {
     "start": "bun debug/debug-server.ts",
-    "build": "bunx tsc",
-    "watch": "bunx tsc --watch",
+    "build": "bunx tsc -b",
+    "watch": "bunx tsc -b --watch",
     "dev": "bun run build && code --extensionDevelopmentPath=`pwd`/client",
     "test": "bun test",
     "test:watch": "bun test --watch",
