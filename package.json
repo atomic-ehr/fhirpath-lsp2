@@ -1,9 +1,14 @@
 {
-  "name": "minimal-lsp-server",
-  "version": "1.0.0",
-  "description": "Minimal LSP server implementation",
+  "name": "@atomic-ehr/fhirpath-lsp",
+  "version": "0.0.1",
+  "description": "Minimal FHIRPATH LSP server implementation",
   "main": "out/server.node.js",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atomic-ehr/fhirpath-lsp2.git"
+  },
+  "license": "MIT",
   "exports": {
     ".": {
       "bun": "./out/server.node.js",
@@ -42,6 +47,5 @@
     "@types/node": "^20.11.0",
     "typescript": "^5.3.3",
     "@types/bun": "latest"
-  },
-  "private": true
+  }
 }
