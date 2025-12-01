@@ -1,4 +1,4 @@
-import { Connection, DiagnosticSeverity } from "vscode-languageserver/node";
+import { Connection, DiagnosticSeverity } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { analyze, FHIRModelProvider } from "@atomic-ehr/fhirpath";
 

@@ -5,7 +5,7 @@
 import indexHtml from './index.html';
 
 // Import the WebSocket handlers from the actual LSP server
-import { createWebSocketHandlers } from '../src/server';
+import { createWebSocketHandlers } from '../src/server.node.js';
 
 // Import FHIRModelProvider to initialize it at startup
 import { FHIRModelProvider } from '@atomic-ehr/fhirpath';

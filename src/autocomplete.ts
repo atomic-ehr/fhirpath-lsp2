@@ -3,8 +3,8 @@ import {
   CompletionItemKind,
   CompletionParams,
   Connection,
-} from "vscode-languageserver/node";
-import { TextDocuments } from "vscode-languageserver/node";
+} from "vscode-languageserver";
+import { TextDocuments } from "vscode-languageserver";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import {
   FHIRModelProvider,
