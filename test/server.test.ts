@@ -7,7 +7,7 @@ describe("LSP Server - Document Validation", () => {
 
   beforeAll(async () => {
     client = new LSPTestClient("bun", [
-      path.join(__dirname, "../src/server.ts"),
+      path.join(__dirname, "../src/server.node.ts"),
       "--stdio",
     ]);
     
