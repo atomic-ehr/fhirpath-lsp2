@@ -1,6 +1,6 @@
 {
   "name": "@atomic-ehr/fhirpath-lsp",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Minimal FHIRPATH LSP server implementation",
   "main": "out/server.node.js",
   "type": "module",
