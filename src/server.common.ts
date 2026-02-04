@@ -35,7 +35,7 @@ export async function setupConnectionCommon(
   async function getModelProvider(): Promise<FHIRModelProvider> {
     if (!modelProvider) {
       modelProvider = makeModelProvider();
-      
+
       // Initialize the model provider (loads common types)
       if (!modelProviderInitPromise) {
         modelProviderInitPromise = modelProvider.initialize().catch(error => {
@@ -43,10 +43,9 @@ export async function setupConnectionCommon(
           // Continue without model provider if initialization fails
         });
       }
-      
-      await modelProviderInitPromise;
     }
-    
+
+    await modelProviderInitPromise;
     return modelProvider;
   }
 

@@ -42,8 +42,8 @@ describe("LSP Server - Document Validation", () => {
     });
 
     // Wait for diagnostics
-    const diagnostics = await client.waitForDiagnostics();
-    
+    const diagnostics = await client.waitForDiagnostics(uri);
+
     expect(diagnostics).not.toBeNull();
     expect(diagnostics.uri).toBe(uri);
     expect(diagnostics.diagnostics).toBeDefined();
@@ -53,7 +53,7 @@ describe("LSP Server - Document Validation", () => {
 
   test("should report errors for invalid FHIRPath syntax", async () => {
     const uri = "file:///tmp/test-error.fhirpath";
-    
+
     // Open a document with invalid FHIRPath syntax
     client.notify("textDocument/didOpen", {
       textDocument: {
@@ -65,7 +65,7 @@ describe("LSP Server - Document Validation", () => {
     });
 
     // Wait for diagnostics
-    const diagnostics = await client.waitForDiagnostics();
+    const diagnostics = await client.waitForDiagnostics(uri);
     
     expect(diagnostics).not.toBeNull();
     expect(diagnostics.uri).toBe(uri);

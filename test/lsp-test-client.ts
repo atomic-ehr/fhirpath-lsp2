@@ -92,13 +92,18 @@ export class LSPTestClient {
     this.diagnosticsHandlers.push(handler);
   }
 
-  async waitForDiagnostics(timeout: number = 1000): Promise<any> {
+  async waitForDiagnostics(uri?: string, timeout: number = 5000): Promise<any> {
     return new Promise((resolve) => {
       const handler = (diagnostics: any) => {
+        if (uri && diagnostics.uri !== uri) return;
+        const index = this.diagnosticsHandlers.indexOf(handler);
+        if (index > -1) {
+          this.diagnosticsHandlers.splice(index, 1);
+        }
         resolve(diagnostics);
       };
       this.onDiagnostics(handler);
-      
+
       // Timeout fallback
       setTimeout(() => {
         const index = this.diagnosticsHandlers.indexOf(handler);
