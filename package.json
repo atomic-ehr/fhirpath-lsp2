@@ -1,6 +1,6 @@
 {
   "name": "@atomic-ehr/fhirpath-lsp",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Minimal FHIRPATH LSP server implementation",
   "main": "out/server.node.js",
   "type": "module",
@@ -30,7 +30,7 @@
     "debug:bg": "bun debug/debug-server.ts --hot --watch &"
   },
   "dependencies": {
-    "@atomic-ehr/fhirpath": "^0.1.3",
+    "@atomic-ehr/fhirpath": "^0.1.4",
     "@codemirror/autocomplete": "^6.20.1",
     "@codemirror/commands": "^6.10.2",
     "@codemirror/language": "^6.12.2",
